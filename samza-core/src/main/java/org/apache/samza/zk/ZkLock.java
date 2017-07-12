@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.Lock;
@@ -40,7 +41,7 @@ public class ZkLock implements Lock {
   private final Random random = new Random();
   private String nodePath = null;
   private LockListener zkLockListener = null;
-  private boolean hasLock;
+  private AtomicBoolean hasLock;
   private final static String LOCK_PATH = "lock";
 
   public ZkLock(String participantId, ZkUtils zkUtils) {
@@ -50,7 +51,7 @@ public class ZkLock implements Lock {
     this.previousProcessorChangeListener = new PreviousLockProcessorChangeListener();
     lockPath = String.format("%s/%s", keyBuilder.getRootPath(), LOCK_PATH);
     zkUtils.makeSurePersistentPathsExists(new String[] {lockPath});
-    hasLock = false;
+    this.hasLock = new AtomicBoolean(false);
   }
 
   /**
@@ -64,7 +65,6 @@ public class ZkLock implements Lock {
       zkLockListener.onError();
     }
     List<String> children = zkUtils.getZkClient().getChildren(lockPath);
-//    List<String> children = zkUtils.getSortedActiveProcessorsZnodes();
     int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(nodePath));
 
     if (children.size() == 0 || index == -1) {
@@ -72,7 +72,7 @@ public class ZkLock implements Lock {
     }
 
     if (index == 0) {
-      hasLock = true;
+      hasLock.set(true);
       zkLockListener.onAcquiringLock();
     } else {
       String predecessor = children.get(index - 1);
@@ -116,7 +116,7 @@ public class ZkLock implements Lock {
       while (!status && nodePath != null) {
         status = zkUtils.getZkClient().delete(nodePath);
       }
-      hasLock = false;
+      hasLock.set(false);
       nodePath = null;
       LOG.info("Ephemeral lock node deleted. Unlocked!");
     } else {
@@ -126,7 +126,7 @@ public class ZkLock implements Lock {
 
   @Override
   public boolean hasLock() {
-    return hasLock;
+    return hasLock.get();
   }
 
   @Override
