@@ -38,6 +38,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
+import org.apache.samza.coordinator.Lock;
+import org.apache.samza.coordinator.LockListener;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -162,7 +164,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-      createStreams(plan.getIntermediateStreams());
+//      createStreams(plan.getIntermediateStreams());
+      createStreamsWithLock(plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -176,6 +179,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           processors.add(processor);
         });
       numProcessorsToStart.set(processors.size());
+
+//      Lock initLock = coordinationUtils.getLock();
+//      initLock.setLockListener(createZkLockListener(plan.getIntermediateStreams(), initLock));
+//      initLock.lock();
+//      System.out.print(initLock.hasLock());
 
       // 4. start the StreamProcessors
       processors.forEach(StreamProcessor::start);
@@ -241,6 +249,42 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           });
         leaderElector.tryBecomeLeader();
         initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+      } else {
+        // each application process will try creating the streams, which
+        // requires stream creation to be idempotent
+        getStreamManager().createStreams(intStreams);
+      }
+    }
+  }
+
+  LockListener createZkLockListener(List<StreamSpec> intStreams, Lock initLock) {
+    return new LockListener() {
+      /**
+       * When the lock is acquired, create the intermediate streams.
+       */
+      @Override
+      public void onAcquiringLock() {
+        try {
+          getStreamManager().createStreams(intStreams);
+        } catch (Exception e) {
+          onError();
+        }
+        initLock.unlock();
+      }
+
+      @Override
+      public void onError() {
+        LOG.info("Error while creating streams! Trying again.");
+      }
+    };
+  }
+
+  void createStreamsWithLock(List<StreamSpec> intStreams) throws Exception {
+    if (!intStreams.isEmpty()) {
+      if (coordinationUtils != null) {
+        Lock initLock = coordinationUtils.getLock();
+        initLock.setLockListener(createZkLockListener(intStreams, initLock));
+        initLock.lock();
       } else {
         // each application process will try creating the streams, which
         // requires stream creation to be idempotent

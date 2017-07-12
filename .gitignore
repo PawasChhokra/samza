@@ -29,3 +29,10 @@ out/
 *.patch
 **.pyc
 samza-shell/src/main/visualizer/plan.json
+samza-core/src/main/java/org/apache/samza/azure/*
+.gitignore
+samza-core/src/main/java/org/apache/samza/container/grouper/stream/GroupByCustomPartition.java
+samza-core/src/main/java/org/apache/samza/container/grouper/stream/GroupByCustomPartitionFactory.java
+samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustom.java
+samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustomFactory.java
+samza-test/src/test/java/org/apache/samza/test/MyTestExample.java

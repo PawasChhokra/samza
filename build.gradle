@@ -16,6 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+apply plugin:'java'
+
 
 buildscript {
   repositories {
@@ -31,6 +33,18 @@ allprojects {
     mavenLocal()
   }
 }
+
+
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  compile "com.microsoft.azure:azure-storage:5.3.1"
+  compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
+}
+
 
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
@@ -153,6 +167,10 @@ project(":samza-core_$scalaVersion") {
     }
   }
 
+  repositories {
+    mavenCentral()
+  }
+
   dependencies {
     compile project(':samza-api')
     compile "com.101tec:zkclient:$zkClientVersion"
@@ -164,6 +182,8 @@ project(":samza-core_$scalaVersion") {
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "com.microsoft.azure:azure-storage:5.3.1"
+    compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
