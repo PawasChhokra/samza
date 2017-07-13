@@ -20,9 +20,7 @@
 package org.apache.samza.azure;
 
 import com.microsoft.azure.storage.AccessCondition;
-import com.microsoft.azure.storage.ServiceProperties;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
 import com.microsoft.azure.storage.blob.CloudPageBlob;
 import java.net.URISyntaxException;
@@ -34,26 +32,9 @@ public class LeaseBlobManager {
   private CloudBlobContainer container;
   private CloudPageBlob leaseBlob;
 
-  public LeaseBlobManager(CloudBlobClient blobClient, String containerName, String blobName) {
-    try {
-      this.container = blobClient.getContainerReference(containerName);
-      container.createIfNotExists();
-    } catch (URISyntaxException e) {
-      e.printStackTrace();
-    } catch (StorageException e) {
-      e.printStackTrace();
-    }
-    try {
-      this.leaseBlob = container.getPageBlobReference(blobName);
-      ServiceProperties temp = leaseBlob.getServiceClient().downloadServiceProperties();
-      temp.setDefaultServiceVersion("2016-05-31");
-      leaseBlob.getServiceClient().uploadServiceProperties(temp);
-      System.out.print("a");
-    } catch (URISyntaxException e) {
-      e.printStackTrace();
-    } catch (StorageException e) {
-      e.printStackTrace();
-    }
+  public LeaseBlobManager(CloudBlobContainer container, CloudPageBlob leaseBlob) {
+    this.container = container;
+    this.leaseBlob = leaseBlob;
   }
 
   /**
@@ -69,14 +50,14 @@ public class LeaseBlobManager {
       String id = leaseBlob.acquireLease(leaseTimeInSec, leaseId);
       return id;
     } catch (StorageException storageException) {
-        int httpStatusCode = storageException.getHttpStatusCode();
+      int httpStatusCode = storageException.getHttpStatusCode();
 
-        if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
-          createBlob(length);
-          acquireLease(leaseTimeInSec, leaseId, length);
-        } else {
-          return null;
-        }
+      if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
+        createBlob(length);
+        acquireLease(leaseTimeInSec, leaseId, length);
+      } else {
+        return null;
+      }
     }
     return null;
   }

@@ -35,58 +35,74 @@
 
 package org.apache.samza.azure;
 
-import java.io.*;
-
 import com.microsoft.azure.storage.*;
 import com.microsoft.azure.storage.blob.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.URISyntaxException;
-import java.rmi.dgc.Lease;
 import java.security.InvalidKeyException;
-import java.util.Random;
 
 
 public class TestBlob {
 
-  /**
-   * Creates the storage blob client.
-   * @param storageConnectionString Azure connection string to connect to storage services.
-   * @return The storage blob client.
-   * @throws URISyntaxException
-   * @throws InvalidKeyException
-   */
-  public static CloudBlobClient getBlobClient(String storageConnectionString) throws URISyntaxException, InvalidKeyException {
-    CloudStorageAccount account;
-    try {
-      account = CloudStorageAccount.parse(storageConnectionString);
-    } catch (IllegalArgumentException|URISyntaxException e) {
-      System.out.println("\nConnection string specifies an invalid URI.");
-      System.out.println("Please confirm the connection string is in the Azure connection string format.");
-      throw e;
-    } catch (InvalidKeyException e) {
-      System.out.println("\nConnection string specifies an invalid key.");
-      System.out.println("Please confirm the AccountName and AccountKey in the connection string are valid.");
-      throw e;
-    }
-    return account.createCloudBlobClient();
-  }
+  public static void main(String[] args) throws URISyntaxException, InvalidKeyException, StorageException, IOException {
 
-  public static void main(String[] args) throws URISyntaxException, InvalidKeyException {
-    String storageConnectionString = "DefaultEndpointsProtocol=http;" + "AccountName=samzaonazure;"
+    String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
 
-    CloudBlobClient serviceClient = getBlobClient(storageConnectionString);
+    BlobUtils blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob");
+    CloudBlobClient serviceClient = blobUtils.createBlobClient(storageConnectionString);
 
-    String leaseId = "001";
-    LeaseBlobManager leaseBlobManager = new LeaseBlobManager(serviceClient, "testlease", "testblob");
-    String lease = leaseBlobManager.acquireLease(60, leaseId, 20000000);
+    File tempFile1 = DataGenerator.createTempLocalFile("pageblob1-", ".tmp", 128 * 1024);
+    File tempFile2 = DataGenerator.createTempLocalFile("pageblob2-", ".tmp", 128 * 1024);
+
+    String leaseId = null;
+    CloudBlobContainer container = blobUtils.getBlobContainer();
+    CloudPageBlob leaseBlob = blobUtils.getLeaseBlob();
+    LeaseBlobManager leaseBlobManager = new LeaseBlobManager(container, leaseBlob);
+    String lease = leaseBlobManager.acquireLease(20, leaseId, 5120000);
+    if (lease != null) {
+      System.out.println("Acquired lease");
+    }
+    FileInputStream tempFileInputStream = null;
+//    try {
+//      tempFileInputStream = new FileInputStream(tempFile1);
+//      System.out.println("\t\t\tUploading range start: 0, length: 1024.");
+//      leaseBlob.upload(tempFileInputStream, 128 * 1024);
+//    }
+//    catch (Throwable t) {
+//      throw t;
+//    }
+//    finally {
+//      if (tempFileInputStream != null) {
+//        tempFileInputStream.close();
+//      }
+//    }
+//    System.out.println("Uploaded 1");
     try {
-      Thread.sleep(20000);
+      Thread.sleep(10000);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
-    boolean status = leaseBlobManager.renewLease(leaseId);
-    status = leaseBlobManager.releaseLease(leaseId);
-
+    boolean status = leaseBlobManager.renewLease(lease);
+    if (status) {
+      System.out.println("Renewed lease");
+      try {
+        tempFileInputStream = new FileInputStream(tempFile2);
+        System.out.println("\t\t\tUploading range start: 4096, length: 1536.");
+        leaseBlob.upload(tempFileInputStream, 128 * 1024);
+      } catch (Throwable t) {
+        throw t;
+      } finally {
+        if (tempFileInputStream != null) {
+          tempFileInputStream.close();
+        }
+      }
+      System.out.println("Uploaded 2");
+    }
+    status = leaseBlobManager.releaseLease(lease);
+    System.out.println("Released lease = " + status);
 //    try {
 //      // Container name must be lower case.
 //      CloudBlobContainer container = serviceClient.getContainerReference("myimages");

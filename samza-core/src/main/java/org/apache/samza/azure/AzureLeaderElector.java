@@ -20,19 +20,9 @@
 package org.apache.samza.azure;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.microsoft.azure.storage.blob.BlobProperties;
-import java.util.Collection;
-import java.util.List;
-import java.util.TimerTask;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
@@ -46,8 +36,8 @@ public class AzureLeaderElector implements LeaderElector {
   public static final Logger LOG = LoggerFactory.getLogger(ZkLeaderElector.class);
   private LeaderElectorListener leaderElectorListener = null;
   private final LeaseBlobManager leaseBlobManager;
-  private static final int leaseTimeInSec = 60;
-  private static final long length = 20000000;
+  private static final int LEASE_TIME_IN_SEC = 60;
+  private static final long LENGTH = 20000000;
   private final String leaseId;
   private final ScheduledExecutorService scheduler;
   private AtomicBoolean isLeader;
@@ -71,7 +61,7 @@ public class AzureLeaderElector implements LeaderElector {
    */
   @Override
   public void tryBecomeLeader() {
-    String id = leaseBlobManager.acquireLease(leaseTimeInSec, leaseId, length);
+    String id = leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId, LENGTH);
     if (id != null) {
       isLeader.set(true);
       leaderElectorListener.onBecomingLeader();
@@ -96,6 +86,10 @@ public class AzureLeaderElector implements LeaderElector {
   @Override
   public boolean amILeader() {
     return isLeader.get();
+  }
+
+  public LeaseBlobManager getLeaseBlobManager() {
+    return this.leaseBlobManager;
   }
 
 }

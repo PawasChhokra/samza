@@ -34,3 +34,4 @@ samza-core/src/main/java/org/apache/samza/container/grouper/stream/GroupByCustom
 samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustom.java
 samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustomFactory.java
 samza-test/src/test/java/org/apache/samza/test/MyTestExample.java
+samza-core/src/main/java/org/apache/samza/azure/DataGenerator.java
