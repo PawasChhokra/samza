@@ -59,6 +59,16 @@ public class StreamManager {
     }
   }
 
+  public boolean checkIfStreamsExist(List<StreamSpec> streams) {
+    for (StreamSpec spec: streams) {
+      SystemAdmin systemAdmin = sysAdmins.get(spec.getSystemName());
+      if (!systemAdmin.existStream(spec)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Map<String, Integer> getStreamPartitionCounts(String systemName, Set<String> streamNames) {
     Map<String, Integer> streamToPartitionCount = new HashMap<>();
 

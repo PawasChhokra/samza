@@ -20,6 +20,7 @@
 package org.apache.samza.azure;
 
 import com.microsoft.azure.storage.AccessCondition;
+import com.microsoft.azure.storage.ServiceProperties;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
@@ -44,6 +45,10 @@ public class LeaseBlobManager {
     }
     try {
       this.leaseBlob = container.getPageBlobReference(blobName);
+      ServiceProperties temp = leaseBlob.getServiceClient().downloadServiceProperties();
+      temp.setDefaultServiceVersion("2016-05-31");
+      leaseBlob.getServiceClient().uploadServiceProperties(temp);
+      System.out.print("a");
     } catch (URISyntaxException e) {
       e.printStackTrace();
     } catch (StorageException e) {

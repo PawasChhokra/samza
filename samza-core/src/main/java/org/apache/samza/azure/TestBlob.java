@@ -40,7 +40,9 @@ import java.io.*;
 import com.microsoft.azure.storage.*;
 import com.microsoft.azure.storage.blob.*;
 import java.net.URISyntaxException;
+import java.rmi.dgc.Lease;
 import java.security.InvalidKeyException;
+import java.util.Random;
 
 
 public class TestBlob {
@@ -74,31 +76,44 @@ public class TestBlob {
 
     CloudBlobClient serviceClient = getBlobClient(storageConnectionString);
 
+    String leaseId = "001";
+    LeaseBlobManager leaseBlobManager = new LeaseBlobManager(serviceClient, "testlease", "testblob");
+    String lease = leaseBlobManager.acquireLease(60, leaseId, 20000000);
     try {
-      // Container name must be lower case.
-      CloudBlobContainer container = serviceClient.getContainerReference("myimages");
-      container.createIfNotExists();
-
-      // Upload an image file.
-      CloudBlockBlob blob = container.getBlockBlobReference("puppy.jpeg");
-      File sourceFile = new File("/Users/pchhokra/Downloads/puppy.jpeg");
-      blob.upload(new FileInputStream(sourceFile), sourceFile.length());
-
-      // Download the image file.
-      File destinationFile = new File(sourceFile.getParentFile(), "puppyDownload.jpeg");
-      blob.downloadToFile(destinationFile.getAbsolutePath());
-    } catch (FileNotFoundException fileNotFoundException) {
-      System.out.print("FileNotFoundException encountered: ");
-      System.out.println(fileNotFoundException.getMessage());
-      System.exit(-1);
-    } catch (StorageException storageException) {
-      System.out.print("StorageException encountered: ");
-      System.out.println(storageException.getMessage());
-      System.exit(-1);
-    } catch (Exception e) {
-      System.out.print("Exception encountered: ");
-      System.out.println(e.getMessage());
-      System.exit(-1);
+      Thread.sleep(20000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
+    boolean status = leaseBlobManager.renewLease(leaseId);
+    status = leaseBlobManager.releaseLease(leaseId);
+
+//    try {
+//      // Container name must be lower case.
+//      CloudBlobContainer container = serviceClient.getContainerReference("myimages");
+//      container.createIfNotExists();
+//
+//      // Upload an image file.
+//      CloudBlockBlob blob = container.getBlockBlobReference("puppy.jpeg");
+//      File sourceFile = new File("/Users/pchhokra/Downloads/puppy.jpeg");
+//      blob.upload(new FileInputStream(sourceFile), sourceFile.length());
+//
+//      // Download the image file.
+//      File destinationFile = new File(sourceFile.getParentFile(), "puppyDownload.jpeg");
+//      blob.downloadToFile(destinationFile.getAbsolutePath());
+//    } catch (FileNotFoundException fileNotFoundException) {
+//      System.out.print("FileNotFoundException encountered: ");
+//      System.out.println(fileNotFoundException.getMessage());
+//      System.exit(-1);
+//    } catch (StorageException storageException) {
+//      System.out.print("StorageException encountered: ");
+//      System.out.println(storageException.getMessage());
+//      System.exit(-1);
+//    } catch (Exception e) {
+//      System.out.print("Exception encountered: ");
+//      System.out.println(e.getMessage());
+//      System.exit(-1);
+//    }
+
   }
+
 }

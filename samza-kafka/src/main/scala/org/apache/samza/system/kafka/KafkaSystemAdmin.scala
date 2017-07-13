@@ -490,13 +490,19 @@ class KafkaSystemAdmin(
       })
   }
 
+  override def existStream(spec: StreamSpec): Boolean = {
+    val topicName = spec.getPhysicalName()
+    val zkClient = connectZk()
+    return AdminUtils.topicExists(zkClient, topicName)
+  }
+
   /**
     * Exception to be thrown when the change log stream creation or validation has failed
     */
   class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
   }
-  
+
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
     val spec = new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)

@@ -32,8 +32,8 @@ public class AzureLeaderElectorListener implements LeaderElectorListener {
 
   private static final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("AzureLeaderElector-%d").build();
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
-  private static final long initialDelayInMilliseconds = 60000;
-  private static final long delayInMilliseconds = 60000;
+  private static final long initialDelayInMilliseconds = 30000;
+  private static final long delayInMilliseconds = 30000;
   private final LeaseBlobManager leaseBlobManager;
   private String leaseId;
 

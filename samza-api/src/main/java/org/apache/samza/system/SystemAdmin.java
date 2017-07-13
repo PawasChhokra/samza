@@ -114,4 +114,8 @@ public interface SystemAdmin {
   default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
     throw new UnsupportedOperationException();
   }
+
+  default boolean existStream(StreamSpec streamSpec) {
+    return false;
+  }
 }

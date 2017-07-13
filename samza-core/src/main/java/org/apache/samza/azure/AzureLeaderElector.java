@@ -46,7 +46,7 @@ public class AzureLeaderElector implements LeaderElector {
   public static final Logger LOG = LoggerFactory.getLogger(ZkLeaderElector.class);
   private LeaderElectorListener leaderElectorListener = null;
   private final LeaseBlobManager leaseBlobManager;
-  private static final int leaseTimeInSec = 120;
+  private static final int leaseTimeInSec = 60;
   private static final long length = 20000000;
   private final String leaseId;
   private final ScheduledExecutorService scheduler;
