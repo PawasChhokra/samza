@@ -65,7 +65,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
 
-    this.blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob");
+    this.blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob", 5120000);
     this.azureLeaderElector = new AzureLeaderElector(new LeaseBlobManager(blobUtils.getBlobContainer(), blobUtils.getLeaseBlob()), processorId);
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
 

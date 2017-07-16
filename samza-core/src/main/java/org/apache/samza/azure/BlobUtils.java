@@ -36,7 +36,7 @@ public class BlobUtils {
   private CloudBlobContainer container = null;
   private CloudPageBlob leaseBlob = null;
 
-  public BlobUtils(String storageConnectionString, String containerName, String blobName) {
+  public BlobUtils(String storageConnectionString, String containerName, String blobName, long length) {
     this.blobClient = createBlobClient(storageConnectionString);
     try {
       this.container = blobClient.getContainerReference(containerName);
@@ -48,6 +48,9 @@ public class BlobUtils {
     }
     try {
       this.leaseBlob = container.getPageBlobReference(blobName);
+      if (!leaseBlob.exists()) {
+        leaseBlob.create(length);
+      }
     } catch (URISyntaxException e) {
       e.printStackTrace();
     } catch (StorageException e) {
@@ -73,6 +76,9 @@ public class BlobUtils {
     }
     return account.createCloudBlobClient();
   }
+
+
+
 
   /**
    * Add processor to the list of active processors if it isn't added already

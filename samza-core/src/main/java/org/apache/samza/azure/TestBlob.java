@@ -42,6 +42,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.Date;
 
 
 public class TestBlob {
@@ -51,15 +52,30 @@ public class TestBlob {
     String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
 
-    BlobUtils blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob");
+    BlobUtils blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob", 5120000);
     CloudBlobClient serviceClient = blobUtils.createBlobClient(storageConnectionString);
+
+    BlobUtils blobUtils2 = new BlobUtils(storageConnectionString, "testlease", "testblob2", 5120000);
 
     File tempFile1 = DataGenerator.createTempLocalFile("pageblob1-", ".tmp", 128 * 1024);
     File tempFile2 = DataGenerator.createTempLocalFile("pageblob2-", ".tmp", 128 * 1024);
 
     String leaseId = null;
     CloudBlobContainer container = blobUtils.getBlobContainer();
+    BlobContainerProperties  props = container.getProperties();
+//    EnumSet<BlobListingDetails> set = EnumSet.of(BlobListingDetails.METADATA);
+    Iterable<ListBlobItem> listBlobs = container.listBlobs();
+//    Iterable<ListBlobItem> listBlobs = container.listBlobs(null, false, set, null, null );
+    for (ListBlobItem item: listBlobs) {
+      BlobProperties blobProps = ((CloudPageBlob) item).getProperties();
+      Date lastModified = blobProps.getLastModified();
+      System.out.println(item.getUri());
+    }
+
     CloudPageBlob leaseBlob = blobUtils.getLeaseBlob();
+
+    leaseBlob.getProperties();
+
     LeaseBlobManager leaseBlobManager = new LeaseBlobManager(container, leaseBlob);
     String lease = leaseBlobManager.acquireLease(20, leaseId, 5120000);
     if (lease != null) {
@@ -91,7 +107,7 @@ public class TestBlob {
       try {
         tempFileInputStream = new FileInputStream(tempFile2);
         System.out.println("\t\t\tUploading range start: 4096, length: 1536.");
-        leaseBlob.upload(tempFileInputStream, 128 * 1024);
+        leaseBlob.upload(tempFileInputStream, 128 * 1024, AccessCondition.generateLeaseCondition(lease), null, null);
       } catch (Throwable t) {
         throw t;
       } finally {
