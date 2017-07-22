@@ -19,41 +19,39 @@
 
 package org.apache.samza.azure;
 
-import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.Lock;
+import org.apache.samza.job.model.JobModel;
 
 
-public class AzureCoordinationUtils implements CoordinationUtils {
+public class JobModelBundle {
+  private JobModel prevJobModel;
+  private JobModel currJobModel;
+  private String prevJobModelVersion;
+  private String currJobModelVersion;
 
-  private final BlobUtils blob;
-  private final AzureClient client;
-  private final LeaseBlobManager leaseBlobManager;
+  public JobModelBundle() {}
 
-  public AzureCoordinationUtils(AzureClient client, BlobUtils blob, LeaseBlobManager leaseBlobManager) {
-    this.blob = blob;
-    this.client = client;
-    this.leaseBlobManager = leaseBlobManager;
-  }
-
-  @Override
-  public void reset() {
+  public JobModelBundle(JobModel prevJM, JobModel currJM, String prevJMV, String currJMV) {
+    prevJobModel = prevJM;
+    currJobModel = currJM;
+    prevJobModelVersion = prevJMV;
+    currJobModelVersion = currJMV;
 
   }
 
-  @Override
-  public LeaderElector getLeaderElector() {
-    return new AzureLeaderElector(leaseBlobManager);
+  public JobModel getCurrJobModel() {
+    return currJobModel;
   }
 
-  @Override
-  public Latch getLatch(int size, String latchId) {
-    return null;
+  public JobModel getPrevJobModel() {
+    return prevJobModel;
   }
 
-  @Override
-  public Lock getLock() {
-    return null;
+  public String getCurrJobModelVersion() {
+    return currJobModelVersion;
   }
+
+  public String getPrevJobModelVersion() {
+    return prevJobModelVersion;
+  }
+
 }

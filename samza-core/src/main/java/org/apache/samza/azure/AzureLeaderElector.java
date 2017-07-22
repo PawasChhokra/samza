@@ -22,6 +22,7 @@ package org.apache.samza.azure;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.samza.coordinator.LeaderElector;
@@ -33,19 +34,19 @@ import org.slf4j.LoggerFactory;
 
 public class AzureLeaderElector implements LeaderElector {
 
-  public static final Logger LOG = LoggerFactory.getLogger(ZkLeaderElector.class);
+  public static final Logger LOG = LoggerFactory.getLogger(AzureLeaderElector.class);
   private LeaderElectorListener leaderElectorListener = null;
   private final LeaseBlobManager leaseBlobManager;
   private static final int LEASE_TIME_IN_SEC = 60;
   private static final long LENGTH = 20000000;
-  private final String leaseId;
+  private String leaseId = null;
   private final ScheduledExecutorService scheduler;
   private AtomicBoolean isLeader;
+  private ScheduledFuture sf;
 
-  public AzureLeaderElector(LeaseBlobManager leaseBlobManager, String leaseId) {
+  public AzureLeaderElector(LeaseBlobManager leaseBlobManager) {
     this.isLeader = new AtomicBoolean(false);
     this.leaseBlobManager = leaseBlobManager;
-    this.leaseId = leaseId;
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("AzureLeaderElector-%d").build();
     this.scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
     this.isLeader = new AtomicBoolean(false);
@@ -61,8 +62,8 @@ public class AzureLeaderElector implements LeaderElector {
    */
   @Override
   public void tryBecomeLeader() {
-    String id = leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId, LENGTH);
-    if (id != null) {
+    leaseId = leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId, LENGTH);
+    if (leaseId != null) {
       isLeader.set(true);
       leaderElectorListener.onBecomingLeader();
     }
@@ -76,6 +77,8 @@ public class AzureLeaderElector implements LeaderElector {
     boolean status = leaseBlobManager.releaseLease(leaseId);
     if (status) {
       isLeader.set(false);
+      leaseId = null;
+      sf.cancel(true);
     }
   }
 
@@ -86,6 +89,14 @@ public class AzureLeaderElector implements LeaderElector {
   @Override
   public boolean amILeader() {
     return isLeader.get();
+  }
+
+  public String getLeaseId() {
+    return leaseId;
+  }
+
+  public void setRenewLeaseScheduledFuture(ScheduledFuture sf) {
+    this.sf = sf;
   }
 
   public LeaseBlobManager getLeaseBlobManager() {

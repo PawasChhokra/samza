@@ -37,55 +37,114 @@ package org.apache.samza.azure;
 
 import com.microsoft.azure.storage.*;
 import com.microsoft.azure.storage.blob.*;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.system.SystemStreamPartition;
 
 
 public class TestBlob {
 
-  public static void main(String[] args) throws URISyntaxException, InvalidKeyException, StorageException, IOException {
+  public static void main(String[] args)
+      throws URISyntaxException, InvalidKeyException, StorageException, IOException, ClassNotFoundException {
 
     String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
 
-    BlobUtils blobUtils = new BlobUtils(storageConnectionString, "testlease", "testblob", 5120000);
-    CloudBlobClient serviceClient = blobUtils.createBlobClient(storageConnectionString);
+    AzureClient client = new AzureClient(storageConnectionString);
+    BlobUtils blobUtils = new BlobUtils(client, "testlease", "testblob", 5120000);
 
-    BlobUtils blobUtils2 = new BlobUtils(storageConnectionString, "testlease", "testblob2", 5120000);
+    BlobUtils blobUtils2 = new BlobUtils(client, "testlease", "testblob2", 5120000);
 
-    File tempFile1 = DataGenerator.createTempLocalFile("pageblob1-", ".tmp", 128 * 1024);
-    File tempFile2 = DataGenerator.createTempLocalFile("pageblob2-", ".tmp", 128 * 1024);
+//    File tempFile1 = DataGenerator.createTempLocalFile("pageblob1-", ".tmp", 128 * 1024);
+//    File tempFile2 = DataGenerator.createTempLocalFile("pageblob2-", ".tmp", 128 * 1024);
 
     String leaseId = null;
     CloudBlobContainer container = blobUtils.getBlobContainer();
-    BlobContainerProperties  props = container.getProperties();
-//    EnumSet<BlobListingDetails> set = EnumSet.of(BlobListingDetails.METADATA);
-    Iterable<ListBlobItem> listBlobs = container.listBlobs();
-//    Iterable<ListBlobItem> listBlobs = container.listBlobs(null, false, set, null, null );
-    for (ListBlobItem item: listBlobs) {
-      BlobProperties blobProps = ((CloudPageBlob) item).getProperties();
-      Date lastModified = blobProps.getLastModified();
-      System.out.println(item.getUri());
+
+
+    CloudPageBlob leaseBlob = blobUtils.getBlob();
+    JobModel currJobModel = getCurrJobModel();
+    JobModel prevJobModel = getPrevJobModel();
+    JobModel first = null;
+    blobUtils.publishJobModel(null, prevJobModel, null, "1", null);
+//    blobUtils.publishJobModel(prevJobModel, currJobModel, "1", "2");
+    JobModel returnedJobModel = blobUtils.getJobModel();
+    if (prevJobModel.equals(returnedJobModel)) {
+      System.out.print("true");
     }
 
-    CloudPageBlob leaseBlob = blobUtils.getLeaseBlob();
-
-    leaseBlob.getProperties();
-
-    LeaseBlobManager leaseBlobManager = new LeaseBlobManager(container, leaseBlob);
-    String lease = leaseBlobManager.acquireLease(20, leaseId, 5120000);
-    if (lease != null) {
-      System.out.println("Acquired lease");
+    String jobModelVersion = "1";
+    String returnedJMV = blobUtils.getJobModelVersion();
+    if (jobModelVersion.equals(returnedJMV)) {
+      System.out.print("true");
     }
-    FileInputStream tempFileInputStream = null;
+
+//    String barrierState = "created_1";
+//    blobUtils.updateBarrierState(barrierState);
+//    String returnedState = blobUtils.getBarrierState();
+//    if (barrierState.equals(returnedState)) {
+//      System.out.print("true");
+//    }
+//
+//    Set<String> list = new HashSet<String>();
+//    list.add("1");
+//    list.add("2");
+//    list.add("3");
+//    blobUtils.publishLiveProcessorList(list);
+//    Set<String> returnedList = blobUtils.getLiveProcessorList();
+//    if (list.equals(returnedList)) {
+//      System.out.println("true");
+//    }
+
+//    LeaseBlobManager leaseBlobManager = new LeaseBlobManager(container, leaseBlob);
+//    String lease = leaseBlobManager.acquireLease(20, leaseId, 5120000);
+//    if (lease != null) {
+//      System.out.println("Acquired lease");
+//    }
+//    FileInputStream tempFileInputStream = null;
 //    try {
-//      tempFileInputStream = new FileInputStream(tempFile1);
+//
+//      JobModel jobModel = getJobModel();
+//
+//      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//      ObjectOutputStream oos = new ObjectOutputStream(baos);
+//
+//      oos.writeObject(jobModel);
+//
+//      oos.flush();
+//      oos.close();
+//
+//      int length = baos.toByteArray().length + 512 - baos.toByteArray().length%512;
+////      /512+1)*512;
+//      byte[] temp = Arrays.copyOf(baos.toByteArray(), length);
+//      int offset = length - baos.toByteArray().length;
+//      InputStream is = new ByteArrayInputStream(temp);
+//
+////      tempFileInputStream = new FileInputStream(tempFile1);
 //      System.out.println("\t\t\tUploading range start: 0, length: 1024.");
-//      leaseBlob.upload(tempFileInputStream, 128 * 1024);
+//      leaseBlob.upload(is, length);
+//
+//      byte[] output = new byte[length];
+//      leaseBlob.downloadToByteArray(output, 0);
+//      output = Arrays.copyOfRange(output, 0, baos.toByteArray().length);
+//      ByteArrayInputStream in = new ByteArrayInputStream(output);
+//      ObjectInputStream is2 = new ObjectInputStream(in);
+//      JobModel j = (JobModel) is2.readObject();
+//      System.out.println(jobModel);
+//      System.out.println(j);
+//      System.out.println("Uploaded 1");
 //    }
 //    catch (Throwable t) {
 //      throw t;
@@ -95,57 +154,69 @@ public class TestBlob {
 //        tempFileInputStream.close();
 //      }
 //    }
-//    System.out.println("Uploaded 1");
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    boolean status = leaseBlobManager.renewLease(lease);
-    if (status) {
-      System.out.println("Renewed lease");
-      try {
-        tempFileInputStream = new FileInputStream(tempFile2);
-        System.out.println("\t\t\tUploading range start: 4096, length: 1536.");
-        leaseBlob.upload(tempFileInputStream, 128 * 1024, AccessCondition.generateLeaseCondition(lease), null, null);
-      } catch (Throwable t) {
-        throw t;
-      } finally {
-        if (tempFileInputStream != null) {
-          tempFileInputStream.close();
-        }
-      }
-      System.out.println("Uploaded 2");
-    }
-    status = leaseBlobManager.releaseLease(lease);
-    System.out.println("Released lease = " + status);
+
+
+
 //    try {
-//      // Container name must be lower case.
-//      CloudBlobContainer container = serviceClient.getContainerReference("myimages");
-//      container.createIfNotExists();
-//
-//      // Upload an image file.
-//      CloudBlockBlob blob = container.getBlockBlobReference("puppy.jpeg");
-//      File sourceFile = new File("/Users/pchhokra/Downloads/puppy.jpeg");
-//      blob.upload(new FileInputStream(sourceFile), sourceFile.length());
-//
-//      // Download the image file.
-//      File destinationFile = new File(sourceFile.getParentFile(), "puppyDownload.jpeg");
-//      blob.downloadToFile(destinationFile.getAbsolutePath());
-//    } catch (FileNotFoundException fileNotFoundException) {
-//      System.out.print("FileNotFoundException encountered: ");
-//      System.out.println(fileNotFoundException.getMessage());
-//      System.exit(-1);
-//    } catch (StorageException storageException) {
-//      System.out.print("StorageException encountered: ");
-//      System.out.println(storageException.getMessage());
-//      System.exit(-1);
-//    } catch (Exception e) {
-//      System.out.print("Exception encountered: ");
-//      System.out.println(e.getMessage());
-//      System.exit(-1);
+//      Thread.sleep(10000);
+//    } catch (InterruptedException e) {
+//      e.printStackTrace();
 //    }
+//    boolean status = leaseBlobManager.renewLease(lease);
+//    if (status) {
+//      System.out.println("Renewed lease");
+//      try {
+//        tempFileInputStream = new FileInputStream(tempFile2);
+//
+//
+//
+//
+//        System.out.println("\t\t\tUploading range start: 4096, length: 1536.");
+//        leaseBlob.upload(tempFileInputStream, 128 * 1024, AccessCondition.generateLeaseCondition(lease), null, null);
+//      } catch (Throwable t) {
+//        throw t;
+//      } finally {
+//        if (tempFileInputStream != null) {
+//          tempFileInputStream.close();
+//        }
+//      }
+//      System.out.println("Uploaded 2");
+//    }
+//    status = leaseBlobManager.releaseLease(lease);
+//    System.out.println("Released lease = " + status);
+
 
   }
 
+  private static JobModel getPrevJobModel() {
+    Map<String, String> configMap = new HashMap<String, String>();
+    Set<SystemStreamPartition> ssp = new HashSet<>();
+    configMap.put("a", "b");
+    Config config = new MapConfig(configMap);
+    TaskName taskName = new TaskName("test");
+    ssp.add(new SystemStreamPartition("foo", "bar", new Partition(1)));
+    TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
+    Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
+    tasks.put(taskName, taskModel);
+    ContainerModel containerModel = new ContainerModel("1", 1, tasks);
+    Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
+    containerMap.put("1", containerModel);
+    return new JobModel(config, containerMap);
+  }
+
+  private static JobModel getCurrJobModel() {
+    Map<String, String> configMap = new HashMap<String, String>();
+    Set<SystemStreamPartition> ssp = new HashSet<>();
+    configMap.put("c", "d");
+    Config config = new MapConfig(configMap);
+    TaskName taskName = new TaskName("test");
+    ssp.add(new SystemStreamPartition("foo", "bar", new Partition(1)));
+    TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
+    Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
+    tasks.put(taskName, taskModel);
+    ContainerModel containerModel = new ContainerModel("1", 1, tasks);
+    Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
+    containerMap.put("1", containerModel);
+    return new JobModel(config, containerMap);
+  }
 }

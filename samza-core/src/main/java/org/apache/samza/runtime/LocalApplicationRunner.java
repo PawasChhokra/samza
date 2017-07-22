@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.azure.AzureCoordinationServiceFactory;
+import org.apache.samza.azure.AzureJobCoordinatorFactory;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -223,6 +225,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
       ApplicationConfig appConfig = new ApplicationConfig(config);
       return new ZkCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
+    } else if (AzureJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
+      ApplicationConfig appConfig = new ApplicationConfig(config);
+      return new AzureCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
     } else {
       return null;
     }

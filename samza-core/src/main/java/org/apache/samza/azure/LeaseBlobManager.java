@@ -24,11 +24,15 @@ import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
 import com.microsoft.azure.storage.blob.CloudPageBlob;
 import java.net.URISyntaxException;
+import org.apache.samza.SamzaException;
 import org.eclipse.jetty.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class LeaseBlobManager {
 
+  public static final Logger LOG = LoggerFactory.getLogger(LeaseBlobManager.class);
   private CloudBlobContainer container;
   private CloudPageBlob leaseBlob;
 
@@ -48,6 +52,7 @@ public class LeaseBlobManager {
   public String acquireLease(int leaseTimeInSec, String leaseId, long length) {
     try {
       String id = leaseBlob.acquireLease(leaseTimeInSec, leaseId);
+      LOG.info("Acquired lease with lease id = " + id);
       return id;
     } catch (StorageException storageException) {
       int httpStatusCode = storageException.getHttpStatusCode();
@@ -55,8 +60,11 @@ public class LeaseBlobManager {
       if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
         createBlob(length);
         acquireLease(leaseTimeInSec, leaseId, length);
+      } else if (httpStatusCode == HttpStatus.CONFLICT_409) {
+        LOG.info("The blob you're trying to acquire is leased already.");
       } else {
-        return null;
+        LOG.info("Error acquiring lease!");
+        throw new SamzaException(storageException);
       }
     }
     return null;

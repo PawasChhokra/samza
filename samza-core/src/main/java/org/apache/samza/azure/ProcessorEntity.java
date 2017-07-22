@@ -19,41 +19,34 @@
 
 package org.apache.samza.azure;
 
-import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.Lock;
+import com.microsoft.azure.storage.table.TableServiceEntity;
 
 
-public class AzureCoordinationUtils implements CoordinationUtils {
+public class ProcessorEntity extends TableServiceEntity {
+  private int liveness;
+  private boolean isLeader;
 
-  private final BlobUtils blob;
-  private final AzureClient client;
-  private final LeaseBlobManager leaseBlobManager;
+  public ProcessorEntity() {}
 
-  public AzureCoordinationUtils(AzureClient client, BlobUtils blob, LeaseBlobManager leaseBlobManager) {
-    this.blob = blob;
-    this.client = client;
-    this.leaseBlobManager = leaseBlobManager;
+  public ProcessorEntity(String jobModelVersion, String processorId) {
+    this.partitionKey = jobModelVersion;
+    this.rowKey = processorId;
+    this.isLeader = false;
   }
 
-  @Override
-  public void reset() {
-
+  public void setLiveness(int value) {
+    liveness = value;
   }
 
-  @Override
-  public LeaderElector getLeaderElector() {
-    return new AzureLeaderElector(leaseBlobManager);
+  public int getLiveness() {
+    return liveness;
   }
 
-  @Override
-  public Latch getLatch(int size, String latchId) {
-    return null;
+  public void setIsLeader(boolean leader) {
+    isLeader = leader;
   }
 
-  @Override
-  public Lock getLock() {
-    return null;
+  public boolean getIsLeader() {
+    return isLeader;
   }
 }
