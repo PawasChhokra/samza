@@ -52,26 +52,22 @@ public class AzureJobCoordinator implements JobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureJobCoordinator.class);
   private static final int METADATA_CACHE_TTL_MS = 5000;
+  private static final String BARRIER_STATE_START = "startbarrier_";
+  private static final String BARRIER_STATE_END = "endbarrier_";
+  private static final String INITIAL_STATE = "unassigned";
+  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureLeaderElector-%d").build();
+  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(20, PROCESSOR_THREAD_FACTORY);
   private final AzureLeaderElector azureLeaderElector;
   private final BlobUtils leaderBlob;
   private final TableUtils table;
-  private StreamMetadataCache streamMetadataCache = null;
   private final Config config;
   private final String processorId;
+  private StreamMetadataCache streamMetadataCache = null;
   private JobCoordinatorListener coordinatorListener = null;
   private boolean isLeader;
   private JobModel jobModel = null;
   private int debounceTimeMs;
-  private static final String BARRIER_STATE_START = "startbarrier_";
-  private static final String BARRIER_STATE_END = "endbarrier_";
-  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureLeaderElector-%d").build();
-  public final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(20, PROCESSOR_THREAD_FACTORY);
-
-//  private static final long CHECK_LIVENESS_DELAY = 30;
-//  private static final long HEARTBEAT_DELAY = 30;
-//  private final long LIVENESS_DEBOUNCE_TIME = 30000;
-  private static final String INITIAL_STATE = "unassigned";
-  private AtomicReference<String> currentJMVersion = new AtomicReference<>("INITIAL_STATE");
+  private AtomicReference<String> currentJMVersion = new AtomicReference<>(INITIAL_STATE);
   private AzureClient client;
   private AtomicReference<String> leaseId = new AtomicReference<>();
   ScheduledFuture heartbeatSF;
@@ -104,19 +100,19 @@ public class AzureJobCoordinator implements JobCoordinator {
     HeartbeatScheduler heartbeat = new HeartbeatScheduler(scheduler, client, currentJMVersion, processorId);
     heartbeatSF = heartbeat.scheduleTask();
 
-//    // Check if leader is alive
-//    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, client, currentJMVersion);
-//    leaderAlive.setStateChangeListener(createLeaderLivenessListener());
-//    leaderAlive.scheduleTask();
-//    // Things to do if it becomes the leader
+    // Things to do if it becomes the leader
 //    if (azureLeaderElector.amILeader()) {
 //      isLeader = true;
-//
 //      // Start scheduler to check for change in list of live processors
 //      LivenessCheckScheduler liveness = new LivenessCheckScheduler(scheduler, client, currentJMVersion);
 //      liveness.setStateChangeListener(createLivenessListener(liveness.getLiveProcessors()));
-//      liveness.scheduleTask();
+//      livenessSF = liveness.scheduleTask();
 //    }
+
+    //    // Check if leader is alive
+//    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, client, currentJMVersion);
+//    leaderAlive.setStateChangeListener(createLeaderLivenessListener());
+//    leaderLivenessSF = leaderAlive.scheduleTask();
 
   }
 
@@ -193,7 +189,6 @@ public class AzureJobCoordinator implements JobCoordinator {
     }
   }
 
-
   public void checkBarrierState(String nextJMVersion) {
     String waitingForState = BARRIER_STATE_END + nextJMVersion;
     String blobState = leaderBlob.getBarrierState();
@@ -201,7 +196,6 @@ public class AzureJobCoordinator implements JobCoordinator {
       onNewJobModelConfirmed(nextJMVersion);
     }
   }
-
 
   /**
    * Generate new JobModel when becoming a leader or the list of processor changed.
@@ -220,11 +214,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     String nextJMVersion;
     if (currentProcessorIds.isEmpty()) {
       nextJMVersion = "1";
-//      currentJMVersion.getAndSet("1");
     } else {
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion.get()) + 1);
-//      prevJMVersion = leaderBlob.getJobModelVersion();
-//      currentJMVersion.getAndSet(Integer.toString(Integer.valueOf(prevJMVersion) + 1));
     }
 
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);

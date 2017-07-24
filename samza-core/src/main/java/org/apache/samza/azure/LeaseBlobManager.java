@@ -63,8 +63,7 @@ public class LeaseBlobManager {
       } else if (httpStatusCode == HttpStatus.CONFLICT_409) {
         LOG.info("The blob you're trying to acquire is leased already.");
       } else {
-        LOG.info("Error acquiring lease!");
-        throw new SamzaException(storageException);
+        LOG.error("Error acquiring lease!", new SamzaException(storageException));
       }
     }
     return null;
@@ -80,8 +79,7 @@ public class LeaseBlobManager {
       leaseBlob.renewLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
     } catch (StorageException e) {
-      e.printStackTrace();
-      //TODO: Trigger leader election
+      LOG.error("Wasn't able to renew lease.", new SamzaException(e));
       return false;
     }
   }
@@ -96,7 +94,7 @@ public class LeaseBlobManager {
       leaseBlob.releaseLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Wasn't able to release lease.", new SamzaException(e));
       return false;
     }
   }
@@ -106,18 +104,12 @@ public class LeaseBlobManager {
       if (!leaseBlob.exists()) {
         leaseBlob.create(length);
       }
-
-      try {
-        leaseBlob.getContainer().createIfNotExists();
+      leaseBlob.getContainer().createIfNotExists();
       } catch (StorageException e) {
-        e.printStackTrace();
+        LOG.error("Azure Storage Exception!", new SamzaException(e));
       } catch (URISyntaxException e) {
-        e.printStackTrace();
+        LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
       }
-
-    } catch (StorageException e) {
-      e.printStackTrace();
-    }
   }
 
 }

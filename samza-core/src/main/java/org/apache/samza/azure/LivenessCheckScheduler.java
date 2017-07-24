@@ -31,11 +31,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class LivenessCheckScheduler implements TaskScheduler {
 
+  private static final long CHECK_LIVENESS_DELAY = 30000;
+  private static final String INITIAL_STATE = "unassigned";
   private final ScheduledExecutorService scheduler;
   private TableUtils table;
   private BlobUtils blob;
-  private static final long CHECK_LIVENESS_DELAY = 30000;
-  private static final String INITIAL_STATE = "unassigned";
   private AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
   private List<String> liveProcessorsList;

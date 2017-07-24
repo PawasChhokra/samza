@@ -21,6 +21,6 @@ package org.apache.samza.azure;
 
 public interface SchedulerStateChangeListener {
 
-  public void onStateChange();
+  void onStateChange();
 
 }

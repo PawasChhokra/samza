@@ -29,13 +29,13 @@ import org.slf4j.LoggerFactory;
 
 public class HeartbeatScheduler implements TaskScheduler {
 
-  private final ScheduledExecutorService scheduler;
-  private TableUtils table;
-  private static final long HEARTBEAT_DELAY = 5;
-  private AtomicReference<String> currentJMVersion;
-  private final String processorId;
-  private SchedulerStateChangeListener listener = null;
   private static final Logger LOG = LoggerFactory.getLogger(HeartbeatScheduler.class);
+  private static final long HEARTBEAT_DELAY = 5;
+  private final ScheduledExecutorService scheduler;
+  private final String processorId;
+  private TableUtils table;
+  private AtomicReference<String> currentJMVersion;
+  private SchedulerStateChangeListener listener = null;
 
   public HeartbeatScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion, final String pid) {
     this.scheduler = scheduler;

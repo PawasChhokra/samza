@@ -26,6 +26,7 @@ import com.microsoft.azure.storage.table.TableOperation;
 import com.microsoft.azure.storage.table.TableQuery;
 import java.net.URISyntaxException;
 import java.util.Random;
+import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +34,11 @@ import org.slf4j.LoggerFactory;
 public class TableUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(TableUtils.class);
-  private CloudTableClient tableClient;
-  private CloudTable table;
-  //add final
   private static final String PARTITION_KEY = "PartitionKey";
   private static final String ROW_KEY = "RowKey";
   private static final String TIMESTAMP = "Timestamp";
+  private CloudTableClient tableClient;
+  private CloudTable table;
 
   public TableUtils(AzureClient client, String tableName) {
     this.tableClient = client.getTableClient();
@@ -46,9 +46,9 @@ public class TableUtils {
       this.table = tableClient.getTableReference(tableName);
       table.createIfNotExists();
     } catch (URISyntaxException e) {
-      e.printStackTrace();
+      LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
   }
 
@@ -60,7 +60,7 @@ public class TableUtils {
     try {
       table.execute(add);
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
   }
 
@@ -70,7 +70,7 @@ public class TableUtils {
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
       return entity;
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
     return null;
   }
@@ -84,9 +84,8 @@ public class TableUtils {
       entity.setLiveness(value);
       TableOperation update = TableOperation.replace(entity);
       table.execute(update);
-
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
   }
 
@@ -97,9 +96,8 @@ public class TableUtils {
       entity.setIsLeader(isLeader);
       TableOperation update = TableOperation.replace(entity);
       table.execute(update);
-
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
   }
 
@@ -110,44 +108,19 @@ public class TableUtils {
       TableOperation remove = TableOperation.delete(entity);
       table.execute(remove);
     } catch (StorageException e) {
-      e.printStackTrace();
+      LOG.error("Azure storage exception.", new SamzaException(e));
     }
   }
 
 
   public Iterable<ProcessorEntity> getEntitiesWithPartition(String partitionKey) {
-    // Create a filter condition where the partition key is "Smith".
     String partitionFilter = TableQuery.generateFilterCondition(this.PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
-
-    // Specify a partition query, using "Smith" as the partition key filter.
     TableQuery<ProcessorEntity> partitionQuery = TableQuery.from(ProcessorEntity.class).where(partitionFilter);
-
     return table.execute(partitionQuery);
-
   }
 
   public CloudTable getTable() {
     return table;
   }
-
-//  public void retrieveColumn() {
-//    // Define a projection query that retrieves only the Email property
-//    TableQuery<ProcessorEntity> projectionQuery = TableQuery.from(ProcessorEntity.class).select(new String[] {"isLeader"});
-//
-//    // Define a Entity resolver to project the entity to the Email value.
-//    EntityResolver<Boolean> emailResolver = new EntityResolver<Boolean>() {
-//      @Override
-//      public Boolean resolve(String partitionKey, String rowKey, Date timeStamp, HashMap<String, EntityProperty> properties, String etag) {
-//        return properties.get("isLeader").getValueAsBoolean();
-//      }
-//    };
-//
-//    // Loop through the results, displaying the Email values.
-//    for (boolean projectedString : table.execute(projectionQuery, emailResolver)) {
-//      System.out.println(projectedString);
-//    }
-//
-//  }
-
 
 }

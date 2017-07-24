@@ -24,8 +24,8 @@ import java.util.concurrent.ScheduledFuture;
 
 public interface TaskScheduler {
 
-  public ScheduledFuture scheduleTask();
+  ScheduledFuture scheduleTask();
 
-  public void setStateChangeListener(SchedulerStateChangeListener listener);
+  void setStateChangeListener(SchedulerStateChangeListener listener);
 
 }

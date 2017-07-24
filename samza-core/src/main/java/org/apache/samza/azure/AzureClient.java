@@ -24,26 +24,32 @@ import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.table.CloudTableClient;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import org.apache.samza.SamzaException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class AzureClient {
 
-  private CloudStorageAccount account;
-  private CloudTableClient tableClient = null;
-  private CloudBlobClient blobClient = null;
+  private static final Logger LOG = LoggerFactory.getLogger(AzureClient.class);
+  private final CloudStorageAccount account;
+  private final CloudTableClient tableClient;
+  private final CloudBlobClient blobClient;
 
   AzureClient(String storageConnectionString) {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
+      blobClient = account.createCloudBlobClient();
+      tableClient = account.createCloudTableClient();
     } catch (IllegalArgumentException | URISyntaxException e) {
-      System.out.println("\nConnection string specifies an invalid URI.");
-      System.out.println("Please confirm the connection string is in the Azure connection string format.");
+      LOG.info("\nConnection string specifies an invalid URI.");
+      LOG.info("Please confirm the connection string is in the Azure connection string format.");
+      throw  new SamzaException(e);
     } catch (InvalidKeyException e) {
-      System.out.println("\nConnection string specifies an invalid key.");
-      System.out.println("Please confirm the AccountName and AccountKey in the connection string are valid.");
+      LOG.info("\nConnection string specifies an invalid key.");
+      LOG.info("Please confirm the AccountName and AccountKey in the connection string are valid.");
+      throw  new SamzaException(e);
     }
-    blobClient = account.createCloudBlobClient();
-    tableClient = account.createCloudTableClient();
   }
 
   public CloudBlobClient getBlobClient() {

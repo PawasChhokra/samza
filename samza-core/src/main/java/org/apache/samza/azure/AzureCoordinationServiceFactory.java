@@ -28,11 +28,9 @@ import org.slf4j.LoggerFactory;
 
 
 public class AzureCoordinationServiceFactory implements CoordinationServiceFactory {
-  private final static Logger LOG = LoggerFactory.getLogger(AzureCoordinationServiceFactory.class);
 
   @Override
   public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
-    ZkConfig zkConfig = new ZkConfig(config);
     String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
     AzureClient client = new AzureClient(storageConnectionString);

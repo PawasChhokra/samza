@@ -26,9 +26,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 
 public class LeaderLivenessCheckScheduler implements TaskScheduler {
+
+  private static final long CHECK_LIVENESS_DELAY = 30000;
   private final ScheduledExecutorService scheduler;
   private TableUtils table;
-  private static final long CHECK_LIVENESS_DELAY = 30000;
   private AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
 
