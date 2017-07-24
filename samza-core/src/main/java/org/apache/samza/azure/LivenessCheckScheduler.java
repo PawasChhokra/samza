@@ -27,12 +27,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class LivenessCheckScheduler implements TaskScheduler {
 
-  private static final long CHECK_LIVENESS_DELAY = 30000;
-  private static final String INITIAL_STATE = "unassigned";
+  private static final Logger LOG = LoggerFactory.getLogger(LivenessCheckScheduler.class);
+  private static final long CHECK_LIVENESS_DELAY = 30;
   private final ScheduledExecutorService scheduler;
   private TableUtils table;
   private BlobUtils blob;
@@ -49,45 +51,21 @@ public class LivenessCheckScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay(new Runnable() {
-      @Override
-      public void run() {
-        //check for change in list of processors
-        Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
-        Set<String> liveProcessors = getActiveProcessorsList();
-        if (!liveProcessors.equals(currProcessors)) {
-          liveProcessorsList = new ArrayList<>(liveProcessors);
-          listener.onStateChange();
-        }
+    return scheduler.scheduleWithFixedDelay( () -> {
+      //check for change in list of processors
+      LOG.info("Checking for list of live processors");
+      Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
+      Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
+      if (!liveProcessors.equals(currProcessors)) {
+        liveProcessorsList = new ArrayList<>(liveProcessors);
+        listener.onStateChange();
       }
-    }, CHECK_LIVENESS_DELAY, CHECK_LIVENESS_DELAY, TimeUnit.MILLISECONDS);
+    }, CHECK_LIVENESS_DELAY, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
   }
 
   @Override
   public void setStateChangeListener(SchedulerStateChangeListener listener) {
     this.listener = listener;
-  }
-
-  /**
-   *
-   * @return List of ids of currently active processors in the application
-   */
-  private Set<String> getActiveProcessorsList() {
-    Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(currentJMVersion.get());
-    Set<String> activeProcessorsList = new HashSet<>();
-    for (ProcessorEntity entity: tableList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY) {
-        activeProcessorsList.add(entity.getRowKey());
-      }
-    }
-
-    Iterable<ProcessorEntity> unassignedList = table.getEntitiesWithPartition(INITIAL_STATE);
-    for (ProcessorEntity entity: unassignedList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY) {
-        activeProcessorsList.add(entity.getRowKey());
-      }
-    }
-    return activeProcessorsList;
   }
 
   public List<String> getLiveProcessors() {

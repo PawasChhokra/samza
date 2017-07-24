@@ -22,34 +22,34 @@ package org.apache.samza.azure;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HeartbeatScheduler implements TaskScheduler {
-
-  private static final Logger LOG = LoggerFactory.getLogger(HeartbeatScheduler.class);
-  private static final long HEARTBEAT_DELAY = 5;
+public class WorkerBarrierStateScheduler implements TaskScheduler {
+  private static final Logger LOG = LoggerFactory.getLogger(WorkerBarrierStateScheduler.class);
+  private static final long BARRIER_REACHED_DELAY = 5;
   private final ScheduledExecutorService scheduler;
-  private final String processorId;
-  private TableUtils table;
-  private AtomicReference<String> currentJMVersion;
+  private BlobUtils blob;
+  private String nextJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public HeartbeatScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion, final String pid) {
+  public WorkerBarrierStateScheduler(ScheduledExecutorService scheduler, AzureClient client, String nextJMVersion) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
-    this.currentJMVersion = currentJMVersion;
-    processorId = pid;
+    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    this.nextJMVersion = nextJMVersion;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Updating heartbeat");
-      table.updateHeartbeat(currentJMVersion.get(), processorId);
-    }, HEARTBEAT_DELAY, HEARTBEAT_DELAY, TimeUnit.SECONDS);
+      LOG.info("Worker checking for barrier state.");
+      String waitingForState = AzureJobCoordinator.BARRIER_STATE_END + nextJMVersion;
+      String blobState = blob.getBarrierState();
+      if (blobState.equals(waitingForState)) {
+        listener.onStateChange();
+      }
+    }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
   }
 
   @Override

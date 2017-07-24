@@ -25,7 +25,10 @@ import com.microsoft.azure.storage.table.CloudTableClient;
 import com.microsoft.azure.storage.table.TableOperation;
 import com.microsoft.azure.storage.table.TableQuery;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +40,8 @@ public class TableUtils {
   private static final String PARTITION_KEY = "PartitionKey";
   private static final String ROW_KEY = "RowKey";
   private static final String TIMESTAMP = "Timestamp";
+  private static final long CHECK_LIVENESS_DELAY = 30;
+  private static final String INITIAL_STATE = "unassigned";
   private CloudTableClient tableClient;
   private CloudTable table;
 
@@ -119,6 +124,27 @@ public class TableUtils {
     return table.execute(partitionQuery);
   }
 
+  /**
+   *
+   * @return List of ids of currently active processors in the application
+   */
+  public Set<String> getActiveProcessorsList(AtomicReference<String> currentJMVersion) {
+    Iterable<ProcessorEntity> tableList = getEntitiesWithPartition(currentJMVersion.get());
+    Set<String> activeProcessorsList = new HashSet<>();
+    for (ProcessorEntity entity: tableList) {
+      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY*1000) {
+        activeProcessorsList.add(entity.getRowKey());
+      }
+    }
+
+    Iterable<ProcessorEntity> unassignedList = getEntitiesWithPartition(INITIAL_STATE);
+    for (ProcessorEntity entity: unassignedList) {
+      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY*1000) {
+        activeProcessorsList.add(entity.getRowKey());
+      }
+    }
+    return activeProcessorsList;
+  }
   public CloudTable getTable() {
     return table;
   }

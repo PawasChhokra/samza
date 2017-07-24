@@ -20,12 +20,8 @@
 package org.apache.samza.azure;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 
 public class AzureCoordinationServiceFactory implements CoordinationServiceFactory {
 

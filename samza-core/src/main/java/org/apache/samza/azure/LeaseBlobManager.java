@@ -105,11 +105,11 @@ public class LeaseBlobManager {
         leaseBlob.create(length);
       }
       leaseBlob.getContainer().createIfNotExists();
-      } catch (StorageException e) {
-        LOG.error("Azure Storage Exception!", new SamzaException(e));
-      } catch (URISyntaxException e) {
-        LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
-      }
+    } catch (StorageException e) {
+      LOG.error("Azure Storage Exception!", new SamzaException(e));
+    } catch (URISyntaxException e) {
+      LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
+    }
   }
 
 }

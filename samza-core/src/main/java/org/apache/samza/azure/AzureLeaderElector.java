@@ -21,6 +21,7 @@ package org.apache.samza.azure;
 
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.slf4j.Logger;
@@ -34,14 +35,16 @@ public class AzureLeaderElector implements LeaderElector {
   private static final long LENGTH = 20000000;
   private final LeaseBlobManager leaseBlobManager;
   private LeaderElectorListener leaderElectorListener = null;
-  private String leaseId = null;
+  private AtomicReference<String> leaseId;
   private AtomicBoolean isLeader;
   private ScheduledFuture renewLeaseSF;
+  private ScheduledFuture livenessSF;
 
   public AzureLeaderElector(LeaseBlobManager leaseBlobManager) {
     this.isLeader = new AtomicBoolean(false);
     this.leaseBlobManager = leaseBlobManager;
     this.isLeader = new AtomicBoolean(false);
+    this.leaseId = new AtomicReference<>(null);
   }
 
   @Override
@@ -54,7 +57,7 @@ public class AzureLeaderElector implements LeaderElector {
    */
   @Override
   public void tryBecomeLeader() {
-    leaseId = leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId, LENGTH);
+    leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get(), LENGTH));
     if (leaseId != null) {
       LOG.info("Became leader!");
       isLeader.set(true);
@@ -67,11 +70,12 @@ public class AzureLeaderElector implements LeaderElector {
    */
   @Override
   public void resignLeadership() {
-    boolean status = leaseBlobManager.releaseLease(leaseId);
+    boolean status = leaseBlobManager.releaseLease(leaseId.get());
     if (status) {
       isLeader.set(false);
       leaseId = null;
       renewLeaseSF.cancel(true);
+      livenessSF.cancel(true);
     }
   }
 
@@ -85,11 +89,15 @@ public class AzureLeaderElector implements LeaderElector {
   }
 
   public String getLeaseId() {
-    return leaseId;
+    return leaseId.get();
   }
 
   public void setRenewLeaseScheduledFuture(ScheduledFuture sf) {
     this.renewLeaseSF = sf;
+  }
+
+  public void setLivenessScheduledFuture(ScheduledFuture sf) {
+    this.livenessSF = sf;
   }
 
   public LeaseBlobManager getLeaseBlobManager() {

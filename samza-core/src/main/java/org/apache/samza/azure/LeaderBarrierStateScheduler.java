@@ -19,41 +19,53 @@
 
 package org.apache.samza.azure;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.coordinator.Lock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HeartbeatScheduler implements TaskScheduler {
+public class LeaderBarrierStateScheduler implements TaskScheduler {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HeartbeatScheduler.class);
-  private static final long HEARTBEAT_DELAY = 5;
+  private static final Logger LOG = LoggerFactory.getLogger(LeaderBarrierStateScheduler.class);
+  private static final long BARRIER_REACHED_DELAY = 15;
   private final ScheduledExecutorService scheduler;
-  private final String processorId;
   private TableUtils table;
-  private AtomicReference<String> currentJMVersion;
+  private BlobUtils blob;
+  private String nextJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public HeartbeatScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion, final String pid) {
+  public LeaderBarrierStateScheduler(ScheduledExecutorService scheduler, AzureClient client, String nextJMVersion) {
     this.scheduler = scheduler;
     this.table = new TableUtils(client, "processors");
-    this.currentJMVersion = currentJMVersion;
-    processorId = pid;
+    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    this.nextJMVersion = nextJMVersion;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Updating heartbeat");
-      table.updateHeartbeat(currentJMVersion.get(), processorId);
-    }, HEARTBEAT_DELAY, HEARTBEAT_DELAY, TimeUnit.SECONDS);
+      LOG.info("Leader checking for barrier state");
+      Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
+      Set<String> tableProcessors = new HashSet<>();
+      for (ProcessorEntity entity: tableList) {
+        tableProcessors.add(entity.getRowKey());
+      }
+      Set<String> blobProcessorList = new HashSet<>(blob.getLiveProcessorList());
+      if (blobProcessorList.equals(tableProcessors)) {
+        listener.onStateChange();
+      }
+    }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
   }
 
   @Override
   public void setStateChangeListener(SchedulerStateChangeListener listener) {
     this.listener = listener;
   }
+
 }

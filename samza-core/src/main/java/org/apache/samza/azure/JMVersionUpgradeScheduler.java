@@ -27,33 +27,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HeartbeatScheduler implements TaskScheduler {
-
-  private static final Logger LOG = LoggerFactory.getLogger(HeartbeatScheduler.class);
-  private static final long HEARTBEAT_DELAY = 5;
+public class JMVersionUpgradeScheduler implements TaskScheduler {
+  private static final Logger LOG = LoggerFactory.getLogger(JMVersionUpgradeScheduler.class);
+  private static final long CHECK_UPGRADE_DELAY = 5;
   private final ScheduledExecutorService scheduler;
-  private final String processorId;
-  private TableUtils table;
+  private BlobUtils blob;
   private AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public HeartbeatScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion, final String pid) {
+  public JMVersionUpgradeScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
+    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
     this.currentJMVersion = currentJMVersion;
-    processorId = pid;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Updating heartbeat");
-      table.updateHeartbeat(currentJMVersion.get(), processorId);
-    }, HEARTBEAT_DELAY, HEARTBEAT_DELAY, TimeUnit.SECONDS);
+      String blobJMV = blob.getJobModelVersion();
+      if (!currentJMVersion.get().equals(blobJMV)) {
+        listener.onStateChange();
+      }
+    }, CHECK_UPGRADE_DELAY, CHECK_UPGRADE_DELAY, TimeUnit.SECONDS);
   }
 
   @Override
   public void setStateChangeListener(SchedulerStateChangeListener listener) {
     this.listener = listener;
   }
+
 }

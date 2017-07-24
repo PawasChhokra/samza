@@ -33,7 +33,6 @@ import java.util.List;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,12 +99,12 @@ public class BlobUtils {
   public JobModel getJobModel() {
     LOG.info("Reading the job model from blob.");
     JobModelBundle jmBundle = getJobModelBundle();
-    if(jmBundle == null) {
+    if (jmBundle == null) {
       LOG.error("Job Model details don't exist on the blob.");
       return null;
     }
     JobModel jm = jmBundle.getCurrJobModel();
-    if(jm == null) {
+    if (jm == null) {
       LOG.error("Job Model doesn't exist on the blob.");
     }
     return jm;
@@ -114,12 +113,12 @@ public class BlobUtils {
   public String getJobModelVersion() {
     LOG.info("Reading the job model version from blob.");
     JobModelBundle jmBundle = getJobModelBundle();
-    if(jmBundle == null) {
+    if (jmBundle == null) {
       LOG.error("Job Model details don't exist on the blob.");
       return null;
     }
     String jmVersion = jmBundle.getCurrJobModelVersion();
-    if(jmVersion == null) {
+    if (jmVersion == null) {
       LOG.error("Job Model version doesn't exist on the blob.");
     }
     return jmVersion;
