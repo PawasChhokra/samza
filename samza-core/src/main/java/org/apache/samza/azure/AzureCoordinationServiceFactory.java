@@ -32,6 +32,6 @@ public class AzureCoordinationServiceFactory implements CoordinationServiceFacto
     AzureClient client = new AzureClient(storageConnectionString);
 
     BlobUtils blob = new BlobUtils(client, "testlease", "testblob", 5120000);
-    return new AzureCoordinationUtils(client, blob, new LeaseBlobManager(blob.getBlobContainer(), blob.getBlob()));
+    return new AzureCoordinationUtils(client, blob, new LeaseBlobManager(blob.getBlob()));
   }
 }

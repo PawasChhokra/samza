@@ -21,46 +21,40 @@ package org.apache.samza.azure;
 
 import com.microsoft.azure.storage.AccessCondition;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.blob.CloudBlobContainer;
 import com.microsoft.azure.storage.blob.CloudPageBlob;
-import java.net.URISyntaxException;
 import org.apache.samza.SamzaException;
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Helper class for lease blob operations.
+ */
 public class LeaseBlobManager {
 
   public static final Logger LOG = LoggerFactory.getLogger(LeaseBlobManager.class);
-  private CloudBlobContainer container;
   private CloudPageBlob leaseBlob;
 
-  public LeaseBlobManager(CloudBlobContainer container, CloudPageBlob leaseBlob) {
-    this.container = container;
+  public LeaseBlobManager(CloudPageBlob leaseBlob) {
     this.leaseBlob = leaseBlob;
   }
 
   /**
    * Acquires a lease on a blob.
-   * If the blob does not exist, it creates a blob and then tries to acquire a lease on it.
+   * If the blob does not exist, throws an exception.
    * @param leaseTimeInSec The time in seconds you want to acquire the lease for.
    * @param leaseId Proposed ID you want to acquire the lease with, null if not proposed.
-   * @param length Size in bytes, of the page blob (needed when the blob doesn't exist and needs to be created).
    * @return String that represents lease ID. Null if lease is not acquired.
    */
-  public String acquireLease(int leaseTimeInSec, String leaseId, long length) {
+  public String acquireLease(int leaseTimeInSec, String leaseId) {
     try {
       String id = leaseBlob.acquireLease(leaseTimeInSec, leaseId);
       LOG.info("Acquired lease with lease id = " + id);
       return id;
     } catch (StorageException storageException) {
       int httpStatusCode = storageException.getHttpStatusCode();
-
-      if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
-        createBlob(length);
-        acquireLease(leaseTimeInSec, leaseId, length);
-      } else if (httpStatusCode == HttpStatus.CONFLICT_409) {
+      if (httpStatusCode == HttpStatus.CONFLICT_409) {
         LOG.info("The blob you're trying to acquire is leased already.");
       } else {
         LOG.error("Error acquiring lease!", new SamzaException(storageException));
@@ -72,7 +66,7 @@ public class LeaseBlobManager {
   /**
    * Renews the lease on the blob.
    * @param leaseId ID of the lease to be renewed.
-   * @return True is lease was renewed successfully, false otherwise.
+   * @return True if lease was renewed successfully, false otherwise.
    */
   public boolean renewLease(String leaseId) {
     try {
@@ -96,19 +90,6 @@ public class LeaseBlobManager {
     } catch (StorageException e) {
       LOG.error("Wasn't able to release lease.", new SamzaException(e));
       return false;
-    }
-  }
-
-  private void createBlob(long length) {
-    try {
-      if (!leaseBlob.exists()) {
-        leaseBlob.create(length);
-      }
-      leaseBlob.getContainer().createIfNotExists();
-    } catch (StorageException e) {
-      LOG.error("Azure Storage Exception!", new SamzaException(e));
-    } catch (URISyntaxException e) {
-      LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
     }
   }
 

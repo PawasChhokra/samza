@@ -34,6 +34,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ *  Client side class that has a reference to Azure Table Storage.
+ *  Enables the user to make updates to the table and retrieve information from the table.
+ */
 public class TableUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(TableUtils.class);
@@ -83,7 +87,7 @@ public class TableUtils {
   public void updateHeartbeat(String jmVersion, String pid) {
     try {
       Random rand = new Random();
-      int value = rand.nextInt(10000);
+      int value = rand.nextInt(10000) + 2;
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
       entity.setLiveness(value);
@@ -132,14 +136,14 @@ public class TableUtils {
     Iterable<ProcessorEntity> tableList = getEntitiesWithPartition(currentJMVersion.get());
     Set<String> activeProcessorsList = new HashSet<>();
     for (ProcessorEntity entity: tableList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY*1000) {
+      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY * 1000) {
         activeProcessorsList.add(entity.getRowKey());
       }
     }
 
     Iterable<ProcessorEntity> unassignedList = getEntitiesWithPartition(INITIAL_STATE);
     for (ProcessorEntity entity: unassignedList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY*1000) {
+      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY * 1000) {
         activeProcessorsList.add(entity.getRowKey());
       }
     }

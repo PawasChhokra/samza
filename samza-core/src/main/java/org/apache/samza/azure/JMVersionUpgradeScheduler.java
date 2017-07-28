@@ -27,6 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Scheduler for worker to check for job model version upgrades on the blob.
+ */
 public class JMVersionUpgradeScheduler implements TaskScheduler {
   private static final Logger LOG = LoggerFactory.getLogger(JMVersionUpgradeScheduler.class);
   private static final long CHECK_UPGRADE_DELAY = 5;
@@ -43,12 +46,13 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      String blobJMV = blob.getJobModelVersion();
-      if (!currentJMVersion.get().equals(blobJMV)) {
-        listener.onStateChange();
-      }
-    }, CHECK_UPGRADE_DELAY, CHECK_UPGRADE_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        LOG.info("Checking for job model version upgrade");
+        String blobJMV = blob.getJobModelVersion();
+        if (!currentJMVersion.get().equals(blobJMV)) {
+          listener.onStateChange();
+        }
+      }, CHECK_UPGRADE_DELAY, CHECK_UPGRADE_DELAY, TimeUnit.SECONDS);
   }
 
   @Override

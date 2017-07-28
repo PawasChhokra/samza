@@ -19,6 +19,9 @@
 
 package org.apache.samza.azure;
 
+/**
+ * Listener interface to track state changes and take necessary actions
+ */
 public interface SchedulerStateChangeListener {
 
   void onStateChange();

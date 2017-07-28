@@ -28,11 +28,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Class to facilitate leader election in Azure.
+ */
 public class AzureLeaderElector implements LeaderElector {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureLeaderElector.class);
   private static final int LEASE_TIME_IN_SEC = 60;
-  private static final long LENGTH = 20000000;
   private final LeaseBlobManager leaseBlobManager;
   private LeaderElectorListener leaderElectorListener = null;
   private AtomicReference<String> leaseId;
@@ -54,10 +56,11 @@ public class AzureLeaderElector implements LeaderElector {
 
   /**
    * Try and acquire a lease on the shared blob.
+   * document lease id
    */
   @Override
   public void tryBecomeLeader() {
-    leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get(), LENGTH));
+    leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
     if (leaseId != null) {
       LOG.info("Became leader!");
       isLeader.set(true);
@@ -67,6 +70,7 @@ public class AzureLeaderElector implements LeaderElector {
 
   /**
    * Release the lease
+   * check if you're leader, only release then
    */
   @Override
   public void resignLeadership() {

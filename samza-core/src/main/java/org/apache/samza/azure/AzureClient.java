@@ -29,6 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Creates the client handles for accessing Blob and Table storage in Azure
+ */
 public class AzureClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureClient.class);

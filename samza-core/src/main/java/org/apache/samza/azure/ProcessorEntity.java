@@ -22,6 +22,9 @@ package org.apache.samza.azure;
 import com.microsoft.azure.storage.table.TableServiceEntity;
 
 
+/**
+ * Table schema for Azure processor table
+ */
 public class ProcessorEntity extends TableServiceEntity {
   private int liveness;
   private boolean isLeader;

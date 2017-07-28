@@ -27,6 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Scheduler for heartbeating to the table.
+ */
 public class HeartbeatScheduler implements TaskScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(HeartbeatScheduler.class);
@@ -46,10 +49,10 @@ public class HeartbeatScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Updating heartbeat");
-      table.updateHeartbeat(currentJMVersion.get(), processorId);
-    }, HEARTBEAT_DELAY, HEARTBEAT_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        LOG.info("Updating heartbeat");
+        table.updateHeartbeat(currentJMVersion.get(), processorId);
+      }, HEARTBEAT_DELAY, HEARTBEAT_DELAY, TimeUnit.SECONDS);
   }
 
   @Override

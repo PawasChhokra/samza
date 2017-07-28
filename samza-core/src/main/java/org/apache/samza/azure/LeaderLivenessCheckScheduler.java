@@ -27,6 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Scheduler class for workers to check if the leader is alive.
+ */
 public class LeaderLivenessCheckScheduler implements TaskScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(LeaderLivenessCheckScheduler.class);
@@ -44,12 +47,12 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Checking for leader liveness");
-      if (!checkIfLeaderAlive()) {
-        listener.onStateChange();
-      }
-    }, CHECK_LIVENESS_DELAY, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        LOG.info("Checking for leader liveness");
+        if (!checkIfLeaderAlive()) {
+          listener.onStateChange();
+        }
+      }, CHECK_LIVENESS_DELAY, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
   }
 
   @Override
@@ -65,7 +68,7 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
         leader = entity;
       }
     }
-    if (System.currentTimeMillis() - leader.getTimestamp().getTime() >= (CHECK_LIVENESS_DELAY*1000)) {
+    if (System.currentTimeMillis() - leader.getTimestamp().getTime() >= (CHECK_LIVENESS_DELAY * 1000)) {
       return false;
     }
     return true;

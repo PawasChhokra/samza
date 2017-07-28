@@ -26,9 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Schedules a task for each worker to check for updates to the barrier state, on the blob.
+ */
 public class WorkerBarrierStateScheduler implements TaskScheduler {
   private static final Logger LOG = LoggerFactory.getLogger(WorkerBarrierStateScheduler.class);
-  private static final long BARRIER_REACHED_DELAY = 5;
+  private static final long BARRIER_REACHED_DELAY = 15;
   private final ScheduledExecutorService scheduler;
   private BlobUtils blob;
   private String nextJMVersion;
@@ -42,14 +45,14 @@ public class WorkerBarrierStateScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Worker checking for barrier state.");
-      String waitingForState = AzureJobCoordinator.BARRIER_STATE_END + nextJMVersion;
-      String blobState = blob.getBarrierState();
-      if (blobState.equals(waitingForState)) {
-        listener.onStateChange();
-      }
-    }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        LOG.info("Worker checking for barrier state.");
+        String waitingForState = AzureJobCoordinator.BARRIER_STATE_END + nextJMVersion;
+        String blobState = blob.getBarrierState();
+        if (blobState.equals(waitingForState)) {
+          listener.onStateChange();
+        }
+      }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
   }
 
   @Override

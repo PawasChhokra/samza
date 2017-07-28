@@ -22,6 +22,10 @@ package org.apache.samza.azure;
 import org.apache.samza.job.model.JobModel;
 
 
+/**
+ * Bundle class for current and previous job model and job model version.
+ * Used for publishing data to the blob.
+ */
 public class JobModelBundle {
   private JobModel prevJobModel;
   private JobModel currJobModel;

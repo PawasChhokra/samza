@@ -22,6 +22,9 @@ package org.apache.samza.azure;
 import java.util.concurrent.ScheduledFuture;
 
 
+/**
+ * Interface for scheduling tasks for Azure Job Coordinator
+ */
 public interface TaskScheduler {
 
   ScheduledFuture scheduleTask();

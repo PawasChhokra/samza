@@ -24,12 +24,14 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.samza.coordinator.Lock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Scheduler class for leader to check if barrier is completed.
+ * The leader polls the Azure processor table in order to do this.
+ */
 public class LeaderBarrierStateScheduler implements TaskScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(LeaderBarrierStateScheduler.class);
@@ -49,18 +51,18 @@ public class LeaderBarrierStateScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      LOG.info("Leader checking for barrier state");
-      Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
-      Set<String> tableProcessors = new HashSet<>();
-      for (ProcessorEntity entity: tableList) {
-        tableProcessors.add(entity.getRowKey());
-      }
-      Set<String> blobProcessorList = new HashSet<>(blob.getLiveProcessorList());
-      if (blobProcessorList.equals(tableProcessors)) {
-        listener.onStateChange();
-      }
-    }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        LOG.info("Leader checking for barrier state");
+        Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
+        Set<String> tableProcessors = new HashSet<>();
+        for (ProcessorEntity entity: tableList) {
+          tableProcessors.add(entity.getRowKey());
+        }
+        Set<String> blobProcessorList = new HashSet<>(blob.getLiveProcessorList());
+        if (blobProcessorList.equals(tableProcessors)) {
+          listener.onStateChange();
+        }
+      }, BARRIER_REACHED_DELAY, BARRIER_REACHED_DELAY, TimeUnit.SECONDS);
   }
 
   @Override

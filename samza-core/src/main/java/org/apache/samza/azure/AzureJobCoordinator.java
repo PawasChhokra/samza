@@ -22,9 +22,7 @@ package org.apache.samza.azure;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -48,6 +46,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Class that provides coordination mechanism for Samza standalone.
+ * Handles rebalancing processor lifecycle through Azure blob and table storage.
+ */
 public class AzureJobCoordinator implements JobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureJobCoordinator.class);
@@ -55,8 +57,8 @@ public class AzureJobCoordinator implements JobCoordinator {
   private static final String BARRIER_STATE_START = "startbarrier_";
   public static final String BARRIER_STATE_END = "endbarrier_";
   private static final String INITIAL_STATE = "unassigned";
-  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureLeaderElector-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(20, PROCESSOR_THREAD_FACTORY);
+  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureScheduler-%d").build();
+  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(30, PROCESSOR_THREAD_FACTORY);
   private final AzureLeaderElector azureLeaderElector;
   private final BlobUtils leaderBlob;
   private final TableUtils table;
@@ -84,7 +86,7 @@ public class AzureJobCoordinator implements JobCoordinator {
         + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
     client = new AzureClient(storageConnectionString);
     this.leaderBlob = new BlobUtils(client, "testlease", "testblob", 5120000);
-    this.azureLeaderElector = new AzureLeaderElector(new LeaseBlobManager(leaderBlob.getBlobContainer(), leaderBlob.getBlob()));
+    this.azureLeaderElector = new AzureLeaderElector(new LeaseBlobManager(leaderBlob.getBlob()));
     azureLeaderElector.setLeaderElectorListener(new AzureLeaderElectorListener());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     this.table = new TableUtils(client, "processors");
@@ -95,21 +97,22 @@ public class AzureJobCoordinator implements JobCoordinator {
 
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
     table.addProcessorEntity(INITIAL_STATE, processorId, 1, azureLeaderElector.amILeader());
-    azureLeaderElector.tryBecomeLeader();
 
     // Start heartbeating
     HeartbeatScheduler heartbeat = new HeartbeatScheduler(scheduler, client, currentJMVersion, processorId);
     heartbeatSF = heartbeat.scheduleTask();
+
+    azureLeaderElector.tryBecomeLeader();
 
     // Check for job model version upgrade
     versionUpgrade = new JMVersionUpgradeScheduler(scheduler, client, currentJMVersion);
     versionUpgrade.setStateChangeListener(createJMVersionUpgradeListener());
     versionUpgradeSF = versionUpgrade.scheduleTask();
 
-//    // Check if leader is alive
-//    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, client, currentJMVersion);
-//    leaderAlive.setStateChangeListener(createLeaderLivenessListener());
-//    leaderLivenessSF = leaderAlive.scheduleTask();
+    // Check if leader is alive
+    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, client, currentJMVersion);
+    leaderAlive.setStateChangeListener(createLeaderLivenessListener());
+    leaderLivenessSF = leaderAlive.scheduleTask();
   }
 
   @Override
@@ -120,8 +123,9 @@ public class AzureJobCoordinator implements JobCoordinator {
     if (azureLeaderElector.amILeader()) {
       azureLeaderElector.resignLeadership();
     }
-    heartbeatSF.cancel(true);
-    versionUpgradeSF.cancel(true);
+    scheduler.shutdownNow();
+//    heartbeatSF.cancel(true);
+//    versionUpgradeSF.cancel(true);
 //    leaderLivenessSF.cancel(true);
 
     if (coordinatorListener != null) {
@@ -186,8 +190,6 @@ public class AzureJobCoordinator implements JobCoordinator {
   public void doOnProcessorChange(List<String> currentProcessorIds) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
 
-    // Generate the JobModel
-    JobModel newJobModel = generateNewJobModel(currentProcessorIds);
     String nextJMVersion;
     if (currentProcessorIds.isEmpty()) {
       nextJMVersion = "1";
@@ -197,6 +199,9 @@ public class AzureJobCoordinator implements JobCoordinator {
 
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion.get()) + 1);
     }
+
+    // Generate the JobModel
+    JobModel newJobModel = generateNewJobModel(currentProcessorIds);
 
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
@@ -227,11 +232,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     jobModel = leaderBlob.getJobModel();
 
     table.addProcessorEntity(nextJMVersion, processorId, 1, azureLeaderElector.amILeader());
-    if (table.getEntity(INITIAL_STATE, processorId) != null) {
-      table.deleteProcessorEntity(INITIAL_STATE, processorId);
-    }
 
-    LOG.info("pid=" + processorId + ": new JobModel available. ver=" + currentJMVersion + "; jm = " + jobModel);
+    LOG.info("pid=" + processorId + ": new JobModel available. ver=" + nextJMVersion + "; jm = " + jobModel);
 
     //Schedule task to check for barrier state
     WorkerBarrierStateScheduler blobBarrierState = new WorkerBarrierStateScheduler(scheduler, client, nextJMVersion);
@@ -242,10 +244,17 @@ public class AzureJobCoordinator implements JobCoordinator {
   //called when barrier ends
   public void onNewJobModelConfirmed(final String nextJMVersion) {
     LOG.info("pid=" + processorId + "new version " + nextJMVersion + " of the job model got confirmed");
+
+    // Delete previous value
+    // add if exists check
     table.deleteProcessorEntity(currentJMVersion.get(), processorId);
+    if (table.getEntity(INITIAL_STATE, processorId) != null) {
+      table.deleteProcessorEntity(INITIAL_STATE, processorId);
+    }
 
     //Start heartbeating to new entry only when barrier reached. Changing the current job model version enables that since we are heartbeating to a row identified by the job model version.
     currentJMVersion.getAndSet(nextJMVersion);
+
     // start the container with the new model
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
@@ -281,29 +290,26 @@ public class AzureJobCoordinator implements JobCoordinator {
 
       // TODO: Check if I need to stop leader aliveness task when I become leader
       // Update table
-
       table.updateIsLeader(currentJMVersion.get(), processorId, true);
 
       // Schedule a task to renew the lease after a fixed time interval
-      ScheduledFuture sf = scheduler.scheduleWithFixedDelay(new Runnable() {
-        @Override
-        public void run() {
+      ScheduledFuture sf = scheduler.scheduleWithFixedDelay(() -> {
           LOG.info("Renewing lease");
           boolean status = false;
           while (!status) {
             status = azureLeaderElector.getLeaseBlobManager().renewLease(azureLeaderElector.getLeaseId());
           }
-        }
-      }, DELAY_IN_SEC, DELAY_IN_SEC, TimeUnit.SECONDS);
+        }, DELAY_IN_SEC, DELAY_IN_SEC, TimeUnit.SECONDS);
       azureLeaderElector.setRenewLeaseScheduledFuture(sf);
-
-      doOnProcessorChange(new ArrayList<>());
 
       // Start scheduler to check for change in list of live processors
       LivenessCheckScheduler liveness = new LivenessCheckScheduler(scheduler, client, currentJMVersion);
       liveness.setStateChangeListener(createLivenessListener(liveness.getLiveProcessors()));
       livenessSF = liveness.scheduleTask();
       azureLeaderElector.setLivenessScheduledFuture(livenessSF);
+
+      doOnProcessorChange(new ArrayList<>());
+
 
     }
 

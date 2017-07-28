@@ -37,6 +37,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Client side class that has reference to Azure blob storage.
+ * Used for writing and reading from the blob.
+ * Every write requires a valid lease ID.
+ */
 public class BlobUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(BlobUtils.class);
@@ -76,7 +81,6 @@ public class BlobUtils {
 
     } catch (Exception e) {
       LOG.error("JobModel publish failed for version=" + currJMV, e);
-      throw new SamzaException(e);
     }
   }
 

@@ -31,6 +31,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Scheduler class for leader to check for changes in the list of live processors.
+ */
 public class LivenessCheckScheduler implements TaskScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(LivenessCheckScheduler.class);
@@ -51,16 +54,16 @@ public class LivenessCheckScheduler implements TaskScheduler {
 
   @Override
   public ScheduledFuture scheduleTask() {
-    return scheduler.scheduleWithFixedDelay( () -> {
-      //check for change in list of processors
-      LOG.info("Checking for list of live processors");
-      Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
-      Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
-      if (!liveProcessors.equals(currProcessors)) {
-        liveProcessorsList = new ArrayList<>(liveProcessors);
-        listener.onStateChange();
-      }
-    }, CHECK_LIVENESS_DELAY, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
+    return scheduler.scheduleWithFixedDelay(() -> {
+        //check for change in list of processors
+        LOG.info("Checking for list of live processors");
+        Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
+        Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
+        if (!liveProcessors.equals(currProcessors)) {
+          liveProcessorsList = new ArrayList<>(liveProcessors);
+          listener.onStateChange();
+        }
+      }, CHECK_LIVENESS_DELAY * 4, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
   }
 
   @Override
