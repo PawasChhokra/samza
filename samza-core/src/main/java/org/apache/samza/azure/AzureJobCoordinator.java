@@ -27,10 +27,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
@@ -57,7 +57,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private static final String BARRIER_STATE_START = "startbarrier_";
   public static final String BARRIER_STATE_END = "endbarrier_";
   private static final String INITIAL_STATE = "unassigned";
-  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureScheduler-%d").build();
+  private static final ThreadFactory PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("AzureJobCoordinatorScheduler-%d").build();
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(30, PROCESSOR_THREAD_FACTORY);
   private final AzureLeaderElector azureLeaderElector;
   private final BlobUtils leaderBlob;
@@ -71,7 +71,6 @@ public class AzureJobCoordinator implements JobCoordinator {
   private AtomicReference<String> currentJMVersion = new AtomicReference<>(INITIAL_STATE);
   private AzureClient client;
   private ScheduledFuture heartbeatSF;
-  private ScheduledFuture livenessSF;
   private ScheduledFuture leaderLivenessSF;
   private ScheduledFuture leaderBarrierSF;
   private ScheduledFuture workerBarrierSF;
@@ -82,14 +81,13 @@ public class AzureJobCoordinator implements JobCoordinator {
     this.config = config;
     this.processorId = createProcessorId(config);
 
-    String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
-        + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
-    client = new AzureClient(storageConnectionString);
-    this.leaderBlob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    AzureConfig azureConfig = new AzureConfig(config);
+    client = new AzureClient(azureConfig.getAzureConnect());
+    this.leaderBlob = new BlobUtils(client, azureConfig.getAzureContainerName(), azureConfig.getAzureBlobName(), azureConfig.getAzureBlobLength());
     this.azureLeaderElector = new AzureLeaderElector(new LeaseBlobManager(leaderBlob.getBlob()));
     azureLeaderElector.setLeaderElectorListener(new AzureLeaderElectorListener());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
-    this.table = new TableUtils(client, "processors");
+    this.table = new TableUtils(client, azureConfig.getAzureTableName());
   }
 
   @Override
@@ -99,18 +97,18 @@ public class AzureJobCoordinator implements JobCoordinator {
     table.addProcessorEntity(INITIAL_STATE, processorId, 1, azureLeaderElector.amILeader());
 
     // Start heartbeating
-    HeartbeatScheduler heartbeat = new HeartbeatScheduler(scheduler, client, currentJMVersion, processorId);
+    HeartbeatScheduler heartbeat = new HeartbeatScheduler(scheduler, table, currentJMVersion, processorId);
     heartbeatSF = heartbeat.scheduleTask();
 
     azureLeaderElector.tryBecomeLeader();
 
     // Check for job model version upgrade
-    versionUpgrade = new JMVersionUpgradeScheduler(scheduler, client, currentJMVersion);
+    versionUpgrade = new JMVersionUpgradeScheduler(scheduler, leaderBlob, currentJMVersion);
     versionUpgrade.setStateChangeListener(createJMVersionUpgradeListener());
     versionUpgradeSF = versionUpgrade.scheduleTask();
 
     // Check if leader is alive
-    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, client, currentJMVersion);
+    LeaderLivenessCheckScheduler leaderAlive = new LeaderLivenessCheckScheduler(scheduler, table, currentJMVersion);
     leaderAlive.setStateChangeListener(createLeaderLivenessListener());
     leaderLivenessSF = leaderAlive.scheduleTask();
   }
@@ -214,7 +212,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
 
     // Start scheduler to check if barrier reached
-    LeaderBarrierStateScheduler barrierState = new LeaderBarrierStateScheduler(scheduler, client, nextJMVersion);
+    LeaderBarrierStateScheduler barrierState = new LeaderBarrierStateScheduler(scheduler, table, leaderBlob, nextJMVersion);
     barrierState.setStateChangeListener(createLeaderBarrierStateListener(nextJMVersion));
     leaderBarrierSF = barrierState.scheduleTask();
 
@@ -236,7 +234,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + ": new JobModel available. ver=" + nextJMVersion + "; jm = " + jobModel);
 
     //Schedule task to check for barrier state
-    WorkerBarrierStateScheduler blobBarrierState = new WorkerBarrierStateScheduler(scheduler, client, nextJMVersion);
+    WorkerBarrierStateScheduler blobBarrierState = new WorkerBarrierStateScheduler(scheduler, leaderBlob, nextJMVersion);
     blobBarrierState.setStateChangeListener(createWorkerBarrierStateListener(nextJMVersion));
     workerBarrierSF = blobBarrierState.scheduleTask();
   }
@@ -280,8 +278,6 @@ public class AzureJobCoordinator implements JobCoordinator {
 
   public class AzureLeaderElectorListener implements LeaderElectorListener {
 
-    private static final long DELAY_IN_SEC = 45;
-
     /**
      * Keep renewing the lease and do the required tasks as a leader
      */
@@ -289,27 +285,22 @@ public class AzureJobCoordinator implements JobCoordinator {
     public void onBecomingLeader() {
 
       // TODO: Check if I need to stop leader aliveness task when I become leader
+
       // Update table
       table.updateIsLeader(currentJMVersion.get(), processorId, true);
 
       // Schedule a task to renew the lease after a fixed time interval
-      ScheduledFuture sf = scheduler.scheduleWithFixedDelay(() -> {
-          LOG.info("Renewing lease");
-          boolean status = false;
-          while (!status) {
-            status = azureLeaderElector.getLeaseBlobManager().renewLease(azureLeaderElector.getLeaseId());
-          }
-        }, DELAY_IN_SEC, DELAY_IN_SEC, TimeUnit.SECONDS);
-      azureLeaderElector.setRenewLeaseScheduledFuture(sf);
+      RenewLeaseScheduler renewLease = new RenewLeaseScheduler(scheduler, azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
+      ScheduledFuture renewLeaseSF = renewLease.scheduleTask();
+      azureLeaderElector.setRenewLeaseScheduledFuture(renewLeaseSF);
 
       // Start scheduler to check for change in list of live processors
-      LivenessCheckScheduler liveness = new LivenessCheckScheduler(scheduler, client, currentJMVersion);
+      LivenessCheckScheduler liveness = new LivenessCheckScheduler(scheduler, table, leaderBlob, currentJMVersion);
       liveness.setStateChangeListener(createLivenessListener(liveness.getLiveProcessors()));
-      livenessSF = liveness.scheduleTask();
+      ScheduledFuture livenessSF = liveness.scheduleTask();
       azureLeaderElector.setLivenessScheduledFuture(livenessSF);
 
       doOnProcessorChange(new ArrayList<>());
-
 
     }
 

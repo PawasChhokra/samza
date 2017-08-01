@@ -45,10 +45,10 @@ public class LivenessCheckScheduler implements TaskScheduler {
   private SchedulerStateChangeListener listener = null;
   private List<String> liveProcessorsList;
 
-  public LivenessCheckScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion) {
+  public LivenessCheckScheduler(ScheduledExecutorService scheduler, TableUtils table, BlobUtils blob, AtomicReference<String> currentJMVersion) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
-    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    this.table = table;
+    this.blob = blob;
     this.currentJMVersion = currentJMVersion;
   }
 

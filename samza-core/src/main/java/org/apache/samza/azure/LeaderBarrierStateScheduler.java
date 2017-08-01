@@ -42,10 +42,10 @@ public class LeaderBarrierStateScheduler implements TaskScheduler {
   private String nextJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public LeaderBarrierStateScheduler(ScheduledExecutorService scheduler, AzureClient client, String nextJMVersion) {
+  public LeaderBarrierStateScheduler(ScheduledExecutorService scheduler, TableUtils table, BlobUtils blob, String nextJMVersion) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
-    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    this.table = table;
+    this.blob = blob;
     this.nextJMVersion = nextJMVersion;
   }
 

@@ -33,3 +33,6 @@ samza-core/src/main/java/org/apache/samza/container/grouper/stream/GroupByCustom
 samza-core/src/main/java/org/apache/samza/container/grouper/stream/GroupByCustomPartitionFactory.java
 samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustom.java
 samza-core/src/main/java/org/apache/samza/container/grouper/task/GroupByContainerCustomFactory.java
+samza-core/src/main/java/org/apache/samza/azure/DataGenerator.java
+samza-core/src/main/java/org/apache/samza/azure/TestBlob.java
+samza-core/src/main/java/org/apache/samza/azure/TestTable.java

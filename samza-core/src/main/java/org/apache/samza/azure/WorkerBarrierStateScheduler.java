@@ -37,9 +37,9 @@ public class WorkerBarrierStateScheduler implements TaskScheduler {
   private String nextJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public WorkerBarrierStateScheduler(ScheduledExecutorService scheduler, AzureClient client, String nextJMVersion) {
+  public WorkerBarrierStateScheduler(ScheduledExecutorService scheduler, BlobUtils blob, String nextJMVersion) {
     this.scheduler = scheduler;
-    this.blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    this.blob = blob;
     this.nextJMVersion = nextJMVersion;
   }
 

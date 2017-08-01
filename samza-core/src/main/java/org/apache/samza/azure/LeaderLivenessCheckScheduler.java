@@ -39,9 +39,9 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
   private AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public LeaderLivenessCheckScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion) {
+  public LeaderLivenessCheckScheduler(ScheduledExecutorService scheduler, TableUtils table, AtomicReference<String> currentJMVersion) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
+    this.table = table;
     this.currentJMVersion = currentJMVersion;
   }
 

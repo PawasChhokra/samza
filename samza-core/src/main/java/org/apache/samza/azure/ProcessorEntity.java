@@ -23,7 +23,8 @@ import com.microsoft.azure.storage.table.TableServiceEntity;
 
 
 /**
- * Table schema for Azure processor table
+ * Table schema for Azure processor table.
+ * Denotes a row in the table.
  */
 public class ProcessorEntity extends TableServiceEntity {
   private int liveness;
@@ -37,12 +38,12 @@ public class ProcessorEntity extends TableServiceEntity {
     this.isLeader = false;
   }
 
+  /**
+   * Updates heartbeat by changing the liveness value in the table
+   * @param value
+   */
   public void setLiveness(int value) {
     liveness = value;
-  }
-
-  public int getLiveness() {
-    return liveness;
   }
 
   public void setIsLeader(boolean leader) {

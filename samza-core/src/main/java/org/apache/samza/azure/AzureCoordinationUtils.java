@@ -54,6 +54,6 @@ public class AzureCoordinationUtils implements CoordinationUtils {
 
   @Override
   public Lock getLock() {
-    return null;
+    return new AzureLock(blob);
   }
 }

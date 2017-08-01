@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Creates the client handles for accessing Blob and Table storage in Azure
+ * Creates the client handles for the Azure Storage account, Azure Blob storage and Azure Table storage
  */
 public class AzureClient {
 

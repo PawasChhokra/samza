@@ -19,12 +19,17 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,6 +37,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.azure.AzureCoordinationServiceFactory;
 import org.apache.samza.azure.AzureJobCoordinatorFactory;
+import org.apache.samza.azure.AzureLock;
+import org.apache.samza.azure.RenewLeaseScheduler;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -284,6 +291,44 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       }
     };
   }
+
+
+  LockListener createAzureLockListener(List<StreamSpec> intStreams, AzureLock initLock) {
+    return new LockListener() {
+
+      private final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("AzureLockScheduler-%d").build();
+      private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
+
+      /**
+       * When the lock is acquired, create the intermediate streams.
+       */
+      @Override
+      public void onAcquiringLock() {
+
+        // Schedule a task to renew the lease after a fixed time interval
+        RenewLeaseScheduler renewLease = new RenewLeaseScheduler(scheduler, initLock.getLeaseBlobManager(), initLock.getLeaseId());
+        ScheduledFuture renewLeaseSF = renewLease.scheduleTask();
+        initLock.setRenewLeaseScheduledFuture(renewLeaseSF);
+
+        try {
+          boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
+          if (!streamsExist) {
+            getStreamManager().createStreams(intStreams);
+          }
+        } catch (Exception e) {
+          onError();
+        }
+
+        initLock.unlock();
+      }
+
+      @Override
+      public void onError() {
+        LOG.info("Error while creating streams! Trying again.");
+      }
+    };
+  }
+
 
   void createStreamsWithLock(List<StreamSpec> intStreams) throws Exception {
     if (!intStreams.isEmpty()) {

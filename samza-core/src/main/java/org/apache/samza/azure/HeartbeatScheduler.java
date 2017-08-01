@@ -40,9 +40,9 @@ public class HeartbeatScheduler implements TaskScheduler {
   private AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public HeartbeatScheduler(ScheduledExecutorService scheduler, AzureClient client, AtomicReference<String> currentJMVersion, final String pid) {
+  public HeartbeatScheduler(ScheduledExecutorService scheduler, TableUtils table, AtomicReference<String> currentJMVersion, final String pid) {
     this.scheduler = scheduler;
-    this.table = new TableUtils(client, "processors");
+    this.table = table;
     this.currentJMVersion = currentJMVersion;
     processorId = pid;
   }

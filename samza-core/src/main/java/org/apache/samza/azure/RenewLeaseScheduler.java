@@ -22,42 +22,38 @@ package org.apache.samza.azure;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-/**
- * Scheduler for worker to check for job model version upgrades on the blob.
- */
-public class JMVersionUpgradeScheduler implements TaskScheduler {
-  private static final Logger LOG = LoggerFactory.getLogger(JMVersionUpgradeScheduler.class);
-  private static final long CHECK_UPGRADE_DELAY = 5;
-  private final ScheduledExecutorService scheduler;
-  private BlobUtils blob;
-  private AtomicReference<String> currentJMVersion;
-  private SchedulerStateChangeListener listener = null;
+public class RenewLeaseScheduler implements TaskScheduler {
 
-  public JMVersionUpgradeScheduler(ScheduledExecutorService scheduler, BlobUtils blob, AtomicReference<String> currentJMVersion) {
+  private static final Logger LOG = LoggerFactory.getLogger(RenewLeaseScheduler.class);
+  private static final long DELAY_IN_SEC = 45;
+  private final ScheduledExecutorService scheduler;
+  private SchedulerStateChangeListener listener = null;
+  private LeaseBlobManager leaseBlobManager;
+  String leaseId;
+
+  public RenewLeaseScheduler(ScheduledExecutorService scheduler, LeaseBlobManager leaseBlobManager, String leaseId) {
     this.scheduler = scheduler;
-    this.blob = blob;
-    this.currentJMVersion = currentJMVersion;
+    this.leaseBlobManager = leaseBlobManager;
+    this.leaseId = leaseId;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        LOG.info("Checking for job model version upgrade");
-        String blobJMV = blob.getJobModelVersion();
-        if (!currentJMVersion.get().equals(blobJMV)) {
-          listener.onStateChange();
+        LOG.info("Renewing lease");
+        boolean status = false;
+        while (!status) {
+          status = leaseBlobManager.renewLease(leaseId);
         }
-      }, CHECK_UPGRADE_DELAY, CHECK_UPGRADE_DELAY, TimeUnit.SECONDS);
+      }, DELAY_IN_SEC, DELAY_IN_SEC, TimeUnit.SECONDS);
   }
 
   @Override
   public void setStateChangeListener(SchedulerStateChangeListener listener) {
     this.listener = listener;
   }
-
 }

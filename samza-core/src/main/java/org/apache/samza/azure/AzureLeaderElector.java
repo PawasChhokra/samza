@@ -61,7 +61,7 @@ public class AzureLeaderElector implements LeaderElector {
   @Override
   public void tryBecomeLeader() {
     leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
-    if (leaseId != null) {
+    if (leaseId.get() != null) {
       LOG.info("Became leader!");
       isLeader.set(true);
       leaderElectorListener.onBecomingLeader();

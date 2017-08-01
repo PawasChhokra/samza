@@ -36,14 +36,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  *  Client side class that has a reference to Azure Table Storage.
- *  Enables the user to make updates to the table and retrieve information from the table.
+ *  Enables the user to add or delete information from the table, make updates to the table and retrieve information from the table.
+ *  Every row in a table is uniquely identified by a combination of the PARTIITON KEY and ROW KEY.
+ *  PARTITION KEY = Group ID = Job Model Version (for this case).
+ *  ROW KEY = Unique entity ID for a group = Processor ID (for this case).
  */
 public class TableUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(TableUtils.class);
   private static final String PARTITION_KEY = "PartitionKey";
-  private static final String ROW_KEY = "RowKey";
-  private static final String TIMESTAMP = "Timestamp";
   private static final long CHECK_LIVENESS_DELAY = 30;
   private static final String INITIAL_STATE = "unassigned";
   private CloudTableClient tableClient;
@@ -61,6 +62,13 @@ public class TableUtils {
     }
   }
 
+  /**
+   * Add a row which denotes an active processor to the processor table.
+   * @param jmVersion Job model version that the processor is operating on.
+   * @param pid Unique processor ID.
+   * @param liveness Random heartbeat value.
+   * @param isLeader Denotes whether the processor is a leader or not.
+   */
   public void addProcessorEntity(String jmVersion, String pid, int liveness, boolean isLeader) {
     ProcessorEntity entity = new ProcessorEntity(jmVersion, pid);
     entity.setIsLeader(isLeader);
@@ -73,6 +81,12 @@ public class TableUtils {
     }
   }
 
+  /**
+   * Retrieve a particular row in the processor table, given the partition key and the row key.
+   * @param jmVersion Job model version of the processor row to be retrieved.
+   * @param pid Unique processor ID of the processor row to be retrieved.
+   * @return An instance of required processor entity. Null if does not exist.
+   */
   public ProcessorEntity getEntity(String jmVersion, String pid) {
     try {
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
@@ -84,6 +98,11 @@ public class TableUtils {
     return null;
   }
 
+  /**
+   * Updates the liveness value of a particular processor with a randomly generated integer, which in turn updates the last modified since timestamp of the row.
+   * @param jmVersion Job model version of the processor row to be updated.
+   * @param pid Unique processor ID of the processor row to be updated.
+   */
   public void updateHeartbeat(String jmVersion, String pid) {
     try {
       Random rand = new Random();
@@ -98,6 +117,12 @@ public class TableUtils {
     }
   }
 
+  /**
+   * Updates the isLeader value when the processor starts or stops being a leader.
+   * @param jmVersion Job model version of the processor row to be updated.
+   * @param pid Unique processor ID of the processor row to be updated.
+   * @param isLeader Denotes whether the processor is a leader or not.
+   */
   public void updateIsLeader(String jmVersion, String pid, boolean isLeader) {
     try {
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
@@ -110,6 +135,11 @@ public class TableUtils {
     }
   }
 
+  /**
+   * Deletes a specified row in the processor table.
+   * @param jmVersion Job model version of the processor row to be deleted.
+   * @param pid Unique processor ID of the processor row to be deleted.
+   */
   public void deleteProcessorEntity(String jmVersion, String pid) {
     try {
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
@@ -121,7 +151,11 @@ public class TableUtils {
     }
   }
 
-
+  /**
+   * Retrieve all rows in a table with the given partition key.
+   * @param partitionKey Job model version of the processors to be retrieved.
+   * @return Iterable list of processor entities.
+   */
   public Iterable<ProcessorEntity> getEntitiesWithPartition(String partitionKey) {
     String partitionFilter = TableQuery.generateFilterCondition(this.PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
     TableQuery<ProcessorEntity> partitionQuery = TableQuery.from(ProcessorEntity.class).where(partitionFilter);
@@ -129,8 +163,9 @@ public class TableUtils {
   }
 
   /**
-   *
-   * @return List of ids of currently active processors in the application
+   * Gets the list of all active processors that are heartbeating to the processor table.
+   * @param currentJMVersion Current job model version that the processors in the application are operating on.
+   * @return List of ids of currently active processors in the application, retrieved from the processor table.
    */
   public Set<String> getActiveProcessorsList(AtomicReference<String> currentJMVersion) {
     Iterable<ProcessorEntity> tableList = getEntitiesWithPartition(currentJMVersion.get());
@@ -149,6 +184,7 @@ public class TableUtils {
     }
     return activeProcessorsList;
   }
+
   public CloudTable getTable() {
     return table;
   }

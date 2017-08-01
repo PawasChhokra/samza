@@ -19,6 +19,7 @@
 
 package org.apache.samza.azure;
 
+import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -27,11 +28,10 @@ public class AzureCoordinationServiceFactory implements CoordinationServiceFacto
 
   @Override
   public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
-    String storageConnectionString = "DefaultEndpointsProtocol=https;" + "AccountName=samzaonazure;"
-        + "AccountKey=CTykRMBO0xCpyHXQNf02POGNnjcWyPVYkkX+VFmSLGKVI458a8SpqXldzD7YeGtJs415zdx3GIJasI/hLP8ccA==";
-    AzureClient client = new AzureClient(storageConnectionString);
+    AzureConfig azureConfig = new AzureConfig(config);
+    AzureClient client = new AzureClient(azureConfig.getAzureConnect());
 
-    BlobUtils blob = new BlobUtils(client, "testlease", "testblob", 5120000);
+    BlobUtils blob = new BlobUtils(client, azureConfig.getAzureContainerName(), azureConfig.getAzureBlobName(), azureConfig.getAzureBlobLength());
     return new AzureCoordinationUtils(client, blob, new LeaseBlobManager(blob.getBlob()));
   }
 }
