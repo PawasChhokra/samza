@@ -191,6 +191,8 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "com.microsoft.azure:azure-storage:5.3.1"
+    testCompile "com.fasterxml.jackson.core:jackson-core:2.8.8"
   }
 
   checkstyle {
