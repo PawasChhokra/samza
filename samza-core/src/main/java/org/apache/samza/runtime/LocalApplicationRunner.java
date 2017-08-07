@@ -35,6 +35,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
@@ -46,6 +47,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkCoordinationServiceFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
@@ -214,9 +216,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
     // TODO: we will need a better way to package the configs with application runner
-    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
+    if ("org.apache.samza.zk.ZkJobCoordinatorFactory".equals(jobCoordinatorFactoryClassName)) {
       ApplicationConfig appConfig = new ApplicationConfig(config);
-      return new ZkCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
+      return Util.<CoordinationServiceFactory>getObj("org.apache.samza.zk.ZkCoordinationServiceFactory").getCoordinationService(appConfig.getGlobalAppId(), uid, config);
+    } else if ("org.apache.samza.AzureJobCoordinatorFactory".equals(jobCoordinatorFactoryClassName)) {
+      ApplicationConfig appConfig = new ApplicationConfig(config);
+      return Util.<CoordinationServiceFactory>getObj("org.apache.samza.AzureCoordinationServiceFactory").getCoordinationService(appConfig.getGlobalAppId(), uid, config);
     } else {
       return null;
     }
