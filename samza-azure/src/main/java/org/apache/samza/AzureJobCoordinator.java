@@ -299,13 +299,11 @@ public class AzureJobCoordinator implements JobCoordinator {
       // Schedule a task to renew the lease after a fixed time interval
       RenewLeaseScheduler renewLease = new RenewLeaseScheduler(scheduler, azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
       ScheduledFuture renewLeaseSF = renewLease.scheduleTask();
-      azureLeaderElector.setRenewLeaseScheduledFuture(renewLeaseSF);
 
       // Start scheduler to check for change in list of live processors
       LivenessCheckScheduler liveness = new LivenessCheckScheduler(scheduler, table, leaderBlob, currentJMVersion);
       liveness.setStateChangeListener(createLivenessListener(liveness.getLiveProcessors()));
       ScheduledFuture livenessSF = liveness.scheduleTask();
-      azureLeaderElector.setLivenessScheduledFuture(livenessSF);
 
       doOnProcessorChange(new ArrayList<>());
 

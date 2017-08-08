@@ -54,7 +54,7 @@ public class AzureClient {
       blobClient = account.createCloudBlobClient();
       // Set retry policy for operations on the blob. In this case, every failed operation on the blob will be retried thrice, after 5 second intervals.
       BlobRequestOptions options = new BlobRequestOptions();
-      RetryPolicy retryPolicy = new RetryLinearRetry(5000, 3);
+      RetryPolicy retryPolicy = new RetryLinearRetry(5000,  3);
       options.setRetryPolicyFactory(retryPolicy);
       blobClient.setDefaultRequestOptions(options);
 
