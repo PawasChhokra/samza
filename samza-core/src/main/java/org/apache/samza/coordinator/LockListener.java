@@ -18,29 +18,13 @@
  */
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+public interface LockListener {
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provide three primitives:
- *   - LeaderElection
- *   - Latch
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
+  public void onAcquiringLock();
 
   /**
-   * reset the internal structure. Does not happen automatically with stop()
+   * Perform the necessary operation when a notification about acquire lock/release lock/error has been received.
    */
-  void reset();
+  public void onError();
 
-
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  Lock getLock();
 }

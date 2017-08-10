@@ -16,31 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.zk;
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provide three primitives:
- *   - LeaderElection
- *   - Latch
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
-
-  /**
-   * reset the internal structure. Does not happen automatically with stop()
-   */
-  void reset();
-
-
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  Lock getLock();
+public class TestZkLock {
 }
