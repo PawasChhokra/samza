@@ -17,22 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.coordinator;
+package org.apache.samza;
 
-public interface Lock {
-
-  /**
-   * Acquires the lock
-   */
-  boolean lock();
-
-  /**
-   * Releases the lock
-   */
-  void unlock();
-
-  boolean hasLock();
-
-  void setLockListener(LockListener listener);
-
+/**
+ * Enum depicting different barrier states.
+ */
+public enum BarrierState {
+  START, END, TIMEOUT
 }

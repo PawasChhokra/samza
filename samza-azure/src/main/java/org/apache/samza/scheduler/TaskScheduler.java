@@ -31,4 +31,5 @@ public interface TaskScheduler {
 
   void setStateChangeListener(SchedulerStateChangeListener listener);
 
+  void shutdown();
 }

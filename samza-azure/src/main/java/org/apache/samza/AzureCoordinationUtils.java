@@ -20,6 +20,7 @@
 package org.apache.samza;
 
 import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 
@@ -51,4 +52,8 @@ public class AzureCoordinationUtils implements CoordinationUtils {
     return null;
   }
 
+  @Override
+  public DistributedLock getLock(String initLockPath) {
+    return null;
+  }
 }
